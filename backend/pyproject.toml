@@ -18,6 +18,10 @@ dependencies = [
     "bcrypt",
 ]
 
+[project.scripts]
+tarakdingdung-serve = "tarakdingdung.composition.main.launcher:run"
+tarakdingdung-seed = "tarakdingdung.composition.seeder.launcher:run"
+
 [project.optional-dependencies]
 dev = [
     "pytest",
