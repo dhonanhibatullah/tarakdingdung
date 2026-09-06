@@ -23,11 +23,12 @@ class SqlAlchemyRoleRepository(RoleRepository):
     async def create(self, *, name, description, is_default, created_by) -> UUID:
         try:
             async with self._db.session() as s:
-                if is_default:
-                    await s.execute(q.build_unset_defaults(created_by))
-                new_id = await s.scalar(q.build_create(
-                    name=name, description=description,
-                    is_default=is_default, created_by=created_by))
+                async with s.begin_nested():
+                    if is_default:
+                        await s.execute(q.build_unset_defaults(created_by))
+                    new_id = await s.scalar(q.build_create(
+                        name=name, description=description,
+                        is_default=is_default, created_by=created_by))
                 await self._db.persist(s)
                 return new_id
         except SQLAlchemyError as exc:
@@ -66,11 +67,12 @@ class SqlAlchemyRoleRepository(RoleRepository):
                            preferences=None, updated_by=None) -> None:
         try:
             async with self._db.session() as s:
-                if is_default:
-                    await s.execute(q.build_unset_defaults(updated_by, except_id=id))
-                result = await s.execute(q.build_update_by_id(
-                    id, name=name, description=description, is_default=is_default,
-                    preferences=preferences, updated_by=updated_by))
+                async with s.begin_nested():
+                    if is_default:
+                        await s.execute(q.build_unset_defaults(updated_by, except_id=id))
+                    result = await s.execute(q.build_update_by_id(
+                        id, name=name, description=description, is_default=is_default,
+                        preferences=preferences, updated_by=updated_by))
                 await self._db.persist(s)
         except SQLAlchemyError as exc:
             raise map_db_error("failed to update role", exc, _NAME_CONFLICT) from exc

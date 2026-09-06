@@ -20,8 +20,9 @@ class SqlAlchemyPermissionRepository(PermissionRepository):
     async def create(self, *, name, description, created_by) -> UUID:
         try:
             async with self._db.session() as s:
-                new_id = await s.scalar(
-                    q.build_create(name=name, description=description, created_by=created_by))
+                async with s.begin_nested():
+                    new_id = await s.scalar(
+                        q.build_create(name=name, description=description, created_by=created_by))
                 await self._db.persist(s)
                 return new_id
         except SQLAlchemyError as exc:
@@ -50,9 +51,10 @@ class SqlAlchemyPermissionRepository(PermissionRepository):
                            preferences=None, updated_by=None) -> None:
         try:
             async with self._db.session() as s:
-                result = await s.execute(q.build_update_by_id(
-                    id, name=name, description=description,
-                    preferences=preferences, updated_by=updated_by))
+                async with s.begin_nested():
+                    result = await s.execute(q.build_update_by_id(
+                        id, name=name, description=description,
+                        preferences=preferences, updated_by=updated_by))
                 await self._db.persist(s)
         except SQLAlchemyError as exc:
             raise map_db_error("failed to update permission", exc, _NAME_CONFLICT) from exc

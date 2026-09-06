@@ -27,8 +27,9 @@ class SqlAlchemyRolePermissionRepository(RolePermissionRepository):
     async def create(self, *, role_id, permission_id, created_by) -> UUID:
         try:
             async with self._db.session() as s:
-                new_id = await s.scalar(q.build_create(
-                    role_id=role_id, permission_id=permission_id, created_by=created_by))
+                async with s.begin_nested():
+                    new_id = await s.scalar(q.build_create(
+                        role_id=role_id, permission_id=permission_id, created_by=created_by))
                 await self._db.persist(s)
                 return new_id
         except SQLAlchemyError as exc:
