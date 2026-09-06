@@ -25,5 +25,11 @@ class Database:
         async with self.sessionmaker() as session:
             yield session
 
+    async def persist(self, session) -> None:
+        if self.current_session.get() is not None:
+            await session.flush()
+        else:
+            await session.commit()
+
     async def dispose(self) -> None:
         await self.engine.dispose()
