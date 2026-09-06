@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from tarakdingdung.domain.contracts.logger.leveled import LeveledLogger
 from tarakdingdung.domain.models.logger import LoggerLevel
+from tarakdingdung.infrastructure.logger.normalize import normalize_meta
 
 
 class JsonLeveledLogging(LeveledLogger):
@@ -31,6 +32,6 @@ class JsonLeveledLogging(LeveledLogger):
             "level": level.upper(),
             "tag": tag,
             "message": message,
-            "meta": meta if meta is not None else {}
+            "meta": normalize_meta(meta),
         }
         print(json.dumps(log_entry), flush=True)

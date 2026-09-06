@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from tarakdingdung.domain.contracts.logger.leveled import LeveledLogger
 from tarakdingdung.domain.models.logger import LoggerLevel
+from tarakdingdung.infrastructure.logger.normalize import normalize_meta
 
 
 class BasicLeveledLogging(LeveledLogger):
@@ -27,5 +28,6 @@ class BasicLeveledLogging(LeveledLogger):
         now = datetime.now()
         timestamp = now.strftime("%d-%m-%Y %H:%M:%S") + f".{now.microsecond // 1000:03d}"
         level_str = level.upper()
-        meta_str = json.dumps(meta) if meta else "{}"
+        normalized = normalize_meta(meta)
+        meta_str = json.dumps(normalized) if normalized else "{}"
         print(f"{timestamp} [{level_str}] [{tag}] {message} | {meta_str}", flush=True)
