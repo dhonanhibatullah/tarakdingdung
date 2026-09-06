@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header
 
 from tarakdingdung.domain.contracts.utility.token import Token
 from tarakdingdung.domain.models.error import DomainError, ErrorType
@@ -19,7 +19,6 @@ def _extract_bearer(value: str | None) -> str | None:
 
 
 async def get_access_claims(
-    request: Request,
     authorization: str | None = Header(default=None, alias="Authorization"),
     token: Token = Depends(get_token),
 ) -> TokenClaimsAccess:

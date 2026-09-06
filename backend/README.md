@@ -9,13 +9,17 @@ FastAPI + SQLAlchemy (async) RBAC & auth service, ported from
 ```bash
 python3.12 -m venv backend/.venv
 backend/.venv/bin/pip install -e "backend/[dev]"
-cp backend/.env.example backend/.env   # edit as needed
+cp backend/.env.example .env           # at the repo root; edit as needed
+                                       # (Settings reads .env relative to the CWD you run from)
 ```
 
 ## Database
 
 ```bash
-# apply migrations (reads TRDD_BE_POSTGRES_* from backend/.env)
+# apply migrations (standard Alembic CLI; reads TRDD_BE_POSTGRES_* from ./.env)
+backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
+
+# alternative: programmatic one-liner
 backend/.venv/bin/python -c "from tarakdingdung.infrastructure.repository.database.migrations import upgrade_to_head; from tarakdingdung.config.settings import Settings; upgrade_to_head(Settings().postgres_dsn)"
 
 backend/.venv/bin/tarakdingdung-seed        # baseline permissions/roles/users

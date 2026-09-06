@@ -11,4 +11,9 @@ def normalize_offset(page: int, limit: int) -> int:
 def search_pattern(search: str | None) -> str | None:
     if search is None or not search.strip():
         return None
-    return f"%{search}%"
+    escaped = (
+        search.replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+    return f"%{escaped}%"

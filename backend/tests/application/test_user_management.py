@@ -5,8 +5,8 @@ import pytest
 from tarakdingdung.application.admin.user_management.usecase import UserManagementUsecase
 from tarakdingdung.domain.models.error import DomainError, ErrorType
 from tarakdingdung.domain.usecases.admin.user_management import (
-    CreateUserRequest, DeleteUserRequest, ReadUserByIdRequest, ReadUserPermissionsRequest,
-    ReadUsersByPaginationRequest, ResetUserPasswordRequest, UpdateUserRequest,
+    CreateUserRequest, DeleteUserRequest, ReadUserByIdRequest,
+    ResetUserPasswordRequest, UpdateUserRequest,
 )
 from tests.fakes.repositories import (
     FakePermissionRepository, FakeRolePermissionRepository, FakeRoleRepository,

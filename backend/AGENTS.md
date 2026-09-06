@@ -46,4 +46,5 @@ imports `infrastructure/`.
 No Redis/`repocache` layer (usecases depend on repository contracts
 directly); FastAPI-idiomatic presentation naming; Alembic instead of
 golang-migrate; api-key auth / payload-schema / llm-config / reverse
-proxies are out of scope.
+proxies are out of scope. TLS/SSL DSN options (e.g. a `sslmode`/`ssl`
+parameter on the Postgres connection) are out of scope for this slice.

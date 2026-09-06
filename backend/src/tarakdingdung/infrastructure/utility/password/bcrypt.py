@@ -18,6 +18,11 @@ class BcryptPassword(Password):
         return await to_thread.run_sync(_hash)
 
     async def compare(self, stored_hash: str, password: str) -> None:
+        if len(password.encode("utf-8")) > 72:
+            # bcrypt rejects secrets longer than 72 bytes; such an input can
+            # never be the stored password, so treat it as a mismatch.
+            raise DomainError("password does not match", ErrorType.UNAUTHORIZED)
+
         def _check() -> bool:
             return bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8"))
         try:

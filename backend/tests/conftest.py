@@ -1,6 +1,6 @@
 import pytest
 
-from testcontainers.postgres import PostgresContainer
+from testcontainers.community.postgres import PostgresContainer
 
 from tarakdingdung.config.settings import Settings
 from tarakdingdung.infrastructure.repository.database.migrations import upgrade_to_head

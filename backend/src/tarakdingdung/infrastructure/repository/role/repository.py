@@ -73,11 +73,11 @@ class SqlAlchemyRoleRepository(RoleRepository):
                     result = await s.execute(q.build_update_by_id(
                         id, name=name, description=description, is_default=is_default,
                         preferences=preferences, updated_by=updated_by))
+                    if result.rowcount == 0:
+                        raise DomainError("role not found", ErrorType.NOT_FOUND)
                 await self._db.persist(s)
         except SQLAlchemyError as exc:
             raise map_db_error("failed to update role", exc, _NAME_CONFLICT) from exc
-        if result.rowcount == 0:
-            raise DomainError("role not found", ErrorType.NOT_FOUND)
 
     async def delete_by_id(self, id, *, deleted_by=None) -> None:
         async with self._db.session() as s:

@@ -21,6 +21,12 @@ async def test_run_commits_on_success(db):
         got = await s.scalar(text("SELECT name FROM permissions WHERE id = :id"), {"id": pid})
     assert got == "p:x"
 
+    # clean up the row this test genuinely commits into the session-scoped
+    # container so it doesn't leak into absolute-count assertions elsewhere.
+    async with db.session() as s:
+        await s.execute(text("DELETE FROM permissions WHERE id = :id"), {"id": pid})
+        await s.commit()
+
 
 @pytest.mark.asyncio
 async def test_run_rolls_back_on_exception(db):

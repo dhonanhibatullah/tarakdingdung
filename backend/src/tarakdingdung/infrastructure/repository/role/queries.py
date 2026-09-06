@@ -52,7 +52,7 @@ def build_count(search: str | None):
     stmt = select(func.count()).select_from(R).where(R.deleted_at.is_(None))
     pattern = search_pattern(search)
     if pattern is not None:
-        stmt = stmt.where(R.name.ilike(pattern))
+        stmt = stmt.where(R.name.ilike(pattern, escape="\\"))
     return stmt
 
 
@@ -60,7 +60,7 @@ def build_read_by_pagination(*, page, limit, search) -> Select:
     stmt = select(R).where(R.deleted_at.is_(None))
     pattern = search_pattern(search)
     if pattern is not None:
-        stmt = stmt.where(R.name.ilike(pattern))
+        stmt = stmt.where(R.name.ilike(pattern, escape="\\"))
     return (stmt.order_by(R.created_at.desc(), R.id.asc())
                 .limit(normalize_limit(limit)).offset(normalize_offset(page, limit)))
 

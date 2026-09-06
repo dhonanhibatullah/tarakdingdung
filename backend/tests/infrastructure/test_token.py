@@ -8,8 +8,12 @@ from tarakdingdung.domain.models.token_claims import TokenClaimsAccess, TokenCla
 from tarakdingdung.infrastructure.utility.token.jwt import JwtToken
 
 
+_ACCESS_SECRET = "a" * 32
+_REFRESH_SECRET = "r" * 32
+
+
 def _token(now=None):
-    return JwtToken(access_secret="a", refresh_secret="r",
+    return JwtToken(access_secret=_ACCESS_SECRET, refresh_secret=_REFRESH_SECRET,
                     access_ttl=timedelta(minutes=15), refresh_ttl=timedelta(days=1),
                     now=now or (lambda: datetime.now(tz=timezone.utc)))
 
@@ -54,7 +58,7 @@ async def test_tampered_token_maps_to_token_invalid():
 
 @pytest.mark.asyncio
 async def test_wrong_secret_is_token_invalid():
-    other = JwtToken(access_secret="different", refresh_secret="r",
+    other = JwtToken(access_secret="d" * 32, refresh_secret=_REFRESH_SECRET,
                      access_ttl=timedelta(minutes=5), refresh_ttl=timedelta(days=1))
     raw = await other.generate_access(TokenClaimsAccess(
         user_id=uuid.uuid4(), name="n", username="u", role="r", permissions=()))

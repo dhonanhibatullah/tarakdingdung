@@ -1,8 +1,19 @@
+"""SQLAlchemy ORM models used for querying only.
+
+These models are NOT the schema source of truth. The Alembic migrations under
+``backend/migrations/`` are hand-written and authoritative; ``alembic
+revision --autogenerate`` is deliberately not part of the workflow. As a
+result these classes intentionally omit most DB-side objects that don't affect
+query construction -- the ``name``/``username`` unique constraints, the
+partial "one default role" index, and CHECK constraints all live in the
+migrations only.
+"""
+
 import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean, ForeignKey, String, Text, UniqueConstraint, func, text,
+    Boolean, ForeignKey, Text, UniqueConstraint, func, text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column

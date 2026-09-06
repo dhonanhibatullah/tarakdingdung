@@ -12,7 +12,7 @@ def _settings(url: str) -> Settings:
     p = urlparse(url.replace("+asyncpg", ""))
     return Settings(postgres_host=p.hostname, postgres_port=p.port, postgres_username=p.username,
                     postgres_password=p.password, postgres_database=p.path.lstrip("/"),
-                    logger_format="plain", seed_super_password="superpass12")
+                    logger_format="json", seed_super_password="superpass12")
 
 
 @pytest.mark.asyncio

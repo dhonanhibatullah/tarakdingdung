@@ -34,4 +34,4 @@ class JsonLeveledLogging(LeveledLogger):
             "message": message,
             "meta": normalize_meta(meta),
         }
-        print(json.dumps(log_entry), flush=True)
+        print(json.dumps(log_entry, default=str), flush=True)

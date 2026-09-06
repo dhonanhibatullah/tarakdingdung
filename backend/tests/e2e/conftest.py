@@ -15,7 +15,9 @@ def _settings(url: str) -> Settings:
     p = urlparse(url.replace("+asyncpg", ""))
     return Settings(postgres_host=p.hostname, postgres_port=p.port, postgres_username=p.username,
                     postgres_password=p.password, postgres_database=p.path.lstrip("/"),
-                    logger_format="plain", password_bcrypt_cost=4,
+                    logger_format="json", password_bcrypt_cost=4,
+                    token_access_secret="e2e-access-secret-" + "x" * 24,
+                    token_refresh_secret="e2e-refresh-secret-" + "x" * 24,
                     seed_super_password="superpass12")
 
 

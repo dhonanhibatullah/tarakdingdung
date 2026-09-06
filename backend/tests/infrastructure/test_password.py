@@ -22,6 +22,16 @@ async def test_compare_mismatch_raises_unauthorized():
 
 
 @pytest.mark.asyncio
+async def test_compare_overlong_password_is_unauthorized_not_failure():
+    pw = BcryptPassword(cost=4)
+    h = await pw.hash("something")
+    with pytest.raises(DomainError) as ei:
+        await pw.compare(h, "x" * 100)
+    assert ei.value.type is ErrorType.UNAUTHORIZED
+    assert ei.value.type is not ErrorType.FAILURE
+
+
+@pytest.mark.asyncio
 async def test_out_of_range_cost_falls_back():
     pw = BcryptPassword(cost=99)
     h = await pw.hash("x-secret-1")

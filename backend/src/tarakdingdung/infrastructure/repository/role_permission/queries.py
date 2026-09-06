@@ -59,6 +59,8 @@ def build_delete_by_id(id: UUID):
 
 
 def build_delete_by_pair(role_id: UUID | None, permission_id: UUID | None):
+    if role_id is None and permission_id is None:
+        raise ValueError("at least one of role_id/permission_id is required")
     stmt = delete(RP)
     if role_id is not None:
         stmt = stmt.where(RP.role_id == role_id)

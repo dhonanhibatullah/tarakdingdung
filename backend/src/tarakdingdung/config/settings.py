@@ -24,7 +24,6 @@ class Settings(BaseSettings):
     postgres_username: str = "postgres"
     postgres_password: str = "postgres"
     postgres_database: str = "tarakdingdung"
-    postgres_ssl_mode: str = "disable"
     postgres_pool_size: int = 20
 
     http_host: str = "0.0.0.0"
@@ -47,8 +46,6 @@ class Settings(BaseSettings):
     def _split_origins(cls, value: object) -> object:
         if isinstance(value, str):
             stripped = value.strip()
-            if stripped.startswith("["):
-                return value
             return [item.strip() for item in stripped.split(",") if item.strip()]
         return value
 

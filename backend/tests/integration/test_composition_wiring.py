@@ -14,7 +14,7 @@ def _settings(migrated_url: str) -> Settings:
         postgres_host=parsed.hostname, postgres_port=parsed.port,
         postgres_username=parsed.username, postgres_password=parsed.password,
         postgres_database=parsed.path.lstrip("/"),
-        logger_format="plain",
+        logger_format="json",
     )
 
 

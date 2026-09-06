@@ -29,5 +29,5 @@ class BasicLeveledLogging(LeveledLogger):
         timestamp = now.strftime("%d-%m-%Y %H:%M:%S") + f".{now.microsecond // 1000:03d}"
         level_str = level.upper()
         normalized = normalize_meta(meta)
-        meta_str = json.dumps(normalized) if normalized else "{}"
+        meta_str = json.dumps(normalized, default=str) if normalized else "{}"
         print(f"{timestamp} [{level_str}] [{tag}] {message} | {meta_str}", flush=True)

@@ -1,3 +1,5 @@
+import contextlib
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,10 +12,19 @@ _METHODS = ["GET", "HEAD", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"]
 _HEADERS = ["Accept", "Authorization", "Content-Type", "Origin", "X-Requested-With"]
 
 
+@contextlib.asynccontextmanager
+async def _lifespan(app: FastAPI):
+    yield
+    driver = getattr(app.state, "driver", None)
+    if driver is not None:
+        await driver.database.dispose()
+
+
 def build_app(container: Container, settings: Settings) -> FastAPI:
     app = FastAPI(
         title=settings.app_name, version=settings.app_version,
         docs_url="/api/docs", openapi_url="/api/openapi.json",
+        lifespan=_lifespan,
     )
     app.state.container = container
     app.state.app_version = settings.app_version

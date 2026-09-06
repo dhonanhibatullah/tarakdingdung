@@ -17,7 +17,6 @@ from tarakdingdung.presentation.http.schemas import request as req
 from tarakdingdung.presentation.http.schemas import response as res
 
 router = APIRouter(prefix="/v1/profile", tags=["Profile"])
-_NO_CONTENT = Response(status_code=204)
 
 
 @router.get("", response_model=res.UserResponse, dependencies=[Depends(require("profile:get"))])
@@ -42,7 +41,7 @@ async def profile_update(body: req.ProfilePatchRequest, actor: UUID = Depends(ge
                          uc: Account = Depends(get_profile_account)):
     await uc.update_profile(UpdateProfileRequest(
         user_id=actor, name=body.name, bio=body.bio, username=body.username, updated_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 @router.patch("/password", status_code=204,
@@ -53,4 +52,4 @@ async def profile_password(body: req.ProfilePasswordPatchRequest,
     await uc.change_password(ChangePasswordRequest(
         user_id=actor, current_password=body.current_password,
         new_password=body.new_password, updated_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)

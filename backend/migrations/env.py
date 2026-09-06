@@ -4,10 +4,17 @@ from alembic import context
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy import pool
 
+from tarakdingdung.config.settings import Settings
 from tarakdingdung.infrastructure.repository.database.orm import Base
 
 config = context.config
 target_metadata = Base.metadata
+
+# Resolve the DB URL: honour an explicit `sqlalchemy.url` (set by
+# migrations.py's alembic_config or on the CLI), otherwise fall back to the
+# Settings-derived asyncpg DSN so the standard `alembic` CLI works too.
+_url = config.get_main_option("sqlalchemy.url") or Settings().postgres_dsn
+config.set_main_option("sqlalchemy.url", _url)
 
 
 def _run_sync(connection) -> None:

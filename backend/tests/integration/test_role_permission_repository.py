@@ -57,4 +57,11 @@ async def test_delete_by_pair_and_by_id(ctx):
     link_id = await rps.create(role_id=rid, permission_id=pid, created_by=None)
     await rps.delete_by_role_id_and_permission_id(role_id=rid, permission_id=pid)
     assert await rps.read_by_id(link_id) is None
-    await rps.delete_by_id(uuid.uuid4())  # no error on missing
+    # re-deleting the now-gone pair raises NOT_FOUND
+    with pytest.raises(DomainError) as ei:
+        await rps.delete_by_role_id_and_permission_id(role_id=rid, permission_id=pid)
+    assert ei.value.type is ErrorType.NOT_FOUND
+    # deleting an unknown id raises NOT_FOUND
+    with pytest.raises(DomainError) as ei:
+        await rps.delete_by_id(uuid.uuid4())
+    assert ei.value.type is ErrorType.NOT_FOUND

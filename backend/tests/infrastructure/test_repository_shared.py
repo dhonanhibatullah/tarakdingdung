@@ -28,6 +28,16 @@ def test_search_pattern(value, expected):
     assert search_pattern(value) == expected
 
 
+@pytest.mark.parametrize("value,expected", [
+    ("50%", "%50\\%%"),
+    ("a_b", "%a\\_b%"),
+    ("back\\slash", "%back\\\\slash%"),
+    ("%_\\", "%\\%\\_\\\\%"),
+])
+def test_search_pattern_escapes_like_metacharacters(value, expected):
+    assert search_pattern(value) == expected
+
+
 class _FakeAsyncpgError(Exception):
     def __init__(self, sqlstate, constraint_name=""):
         super().__init__("db error")

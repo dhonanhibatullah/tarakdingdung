@@ -42,7 +42,10 @@ def build_count(search: str | None, role_id: UUID | None):
     stmt = select(func.count()).select_from(U).where(U.deleted_at.is_(None))
     pattern = search_pattern(search)
     if pattern is not None:
-        stmt = stmt.where(or_(U.name.ilike(pattern), U.username.ilike(pattern)))
+        stmt = stmt.where(or_(
+            U.name.ilike(pattern, escape="\\"),
+            U.username.ilike(pattern, escape="\\"),
+        ))
     if role_id is not None:
         stmt = stmt.where(U.role_id == role_id)
     return stmt
@@ -54,7 +57,10 @@ def build_read_by_pagination(*, page, limit, search, role_id) -> Select:
             .where(U.deleted_at.is_(None)))
     pattern = search_pattern(search)
     if pattern is not None:
-        stmt = stmt.where(or_(U.name.ilike(pattern), U.username.ilike(pattern)))
+        stmt = stmt.where(or_(
+            U.name.ilike(pattern, escape="\\"),
+            U.username.ilike(pattern, escape="\\"),
+        ))
     if role_id is not None:
         stmt = stmt.where(U.role_id == role_id)
     return (stmt.order_by(U.created_at.desc(), U.id.asc())

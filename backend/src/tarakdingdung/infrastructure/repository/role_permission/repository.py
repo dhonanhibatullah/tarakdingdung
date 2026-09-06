@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from tarakdingdung.domain.contracts.repository.role_permission import (
     RolePermissionRepository, RolePermissionRow,
 )
-from tarakdingdung.domain.models.error import ErrorType
+from tarakdingdung.domain.models.error import DomainError, ErrorType
 from tarakdingdung.infrastructure.repository.database.session import Database
 from tarakdingdung.infrastructure.repository.role_permission import queries as q
 from tarakdingdung.infrastructure.repository.shared.errors import ConflictMatch, map_db_error
@@ -56,10 +56,14 @@ class SqlAlchemyRolePermissionRepository(RolePermissionRepository):
 
     async def delete_by_id(self, id: UUID) -> None:
         async with self._db.session() as s:
-            await s.execute(q.build_delete_by_id(id))
+            result = await s.execute(q.build_delete_by_id(id))
+            if result.rowcount == 0:
+                raise DomainError("role permission not found", ErrorType.NOT_FOUND)
             await self._db.persist(s)
 
     async def delete_by_role_id_and_permission_id(self, *, role_id, permission_id) -> None:
         async with self._db.session() as s:
-            await s.execute(q.build_delete_by_pair(role_id, permission_id))
+            result = await s.execute(q.build_delete_by_pair(role_id, permission_id))
+            if result.rowcount == 0:
+                raise DomainError("role permission not found", ErrorType.NOT_FOUND)
             await self._db.persist(s)

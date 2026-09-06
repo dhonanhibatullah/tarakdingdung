@@ -7,15 +7,15 @@ from tarakdingdung.domain.usecases.admin.permission_management import (
     CreatePermissionRequest, PermissionManagement,
 )
 from tarakdingdung.domain.usecases.admin.role_management import (
-    AssignRolePermissionRequest, RoleManagement, RolePermissionResult,
+    AssignRolePermissionRequest, RoleManagement,
 )
 from tarakdingdung.domain.usecases.admin.user_management import (
     CreateUserRequest, UserManagement,
 )
-from tarakdingdung.domain.usecases.auth.session import LoginRequest, LoginResult, Session
-from tarakdingdung.domain.usecases.profile.account import Account, UpdateProfileRequest
+from tarakdingdung.domain.usecases.auth.session import LoginResult, Session
+from tarakdingdung.domain.usecases.profile.account import Account
 from tarakdingdung.domain.usecases.profile.me import Me
-from tarakdingdung.domain.usecases.profile.security import ChangePasswordRequest, Security
+from tarakdingdung.domain.usecases.profile.security import Security
 
 
 @pytest.mark.parametrize("cls", [PermissionManagement, RoleManagement, UserManagement,

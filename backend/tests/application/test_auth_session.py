@@ -1,5 +1,3 @@
-import uuid
-
 import pytest
 
 from tarakdingdung.application.auth.session.usecase import SessionUsecase

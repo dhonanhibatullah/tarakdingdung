@@ -19,8 +19,6 @@ from tarakdingdung.presentation.http.utils.pagination import (
 
 router = APIRouter(prefix="/v1/admin", tags=["Admin"])
 
-_NO_CONTENT = Response(status_code=204)
-
 
 def _missing(name: str) -> DomainError:
     return DomainError(f"{name} not found", ErrorType.NOT_FOUND)
@@ -75,7 +73,7 @@ async def permission_update(id: UUID, body: req.PermissionPatchRequest,
                             uc: pm.PermissionManagement = Depends(get_permission_management)):
     await uc.update_by_id(pm.UpdatePermissionRequest(
         id=id, name=body.name, description=body.description, updated_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 @router.delete("/permissions/{id}", status_code=204,
@@ -83,7 +81,7 @@ async def permission_update(id: UUID, body: req.PermissionPatchRequest,
 async def permission_delete(id: UUID, actor: UUID = Depends(get_actor_id),
                             uc: pm.PermissionManagement = Depends(get_permission_management)):
     await uc.delete_by_id(pm.DeletePermissionRequest(id=id, deleted_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 # ---- Roles ---------------------------------------------------------------
@@ -137,7 +135,7 @@ async def role_permissions(id: UUID, uc: rm.RoleManagement = Depends(get_role_ma
 async def role_set_default(id: UUID, actor: UUID = Depends(get_actor_id),
                            uc: rm.RoleManagement = Depends(get_role_management)):
     await uc.set_default_role(rm.SetDefaultRoleRequest(id=id, updated_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 @router.get("/roles/{id}", response_model=res.RoleResponse,
@@ -154,14 +152,14 @@ async def role_update(id: UUID, body: req.RolePatchRequest, actor: UUID = Depend
                       uc: rm.RoleManagement = Depends(get_role_management)):
     await uc.update_by_id(rm.UpdateRoleRequest(
         id=id, name=body.name, description=body.description, updated_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 @router.delete("/roles/{id}", status_code=204, dependencies=[Depends(require("role:remove"))])
 async def role_delete(id: UUID, actor: UUID = Depends(get_actor_id),
                       uc: rm.RoleManagement = Depends(get_role_management)):
     await uc.delete_by_id(rm.DeleteRoleRequest(id=id, deleted_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 @router.post("/roles/{role_id}/permissions/{permission_id}", status_code=201,
@@ -181,7 +179,7 @@ async def role_permission_revoke(role_id: UUID, permission_id: UUID,
                                  uc: rm.RoleManagement = Depends(get_role_management)):
     await uc.revoke_permission(rm.RevokeRolePermissionRequest(
         role_id=role_id, permission_id=permission_id))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 @router.get("/role-permissions",
@@ -261,7 +259,7 @@ async def user_password(id: UUID, body: req.UserPasswordPatchRequest,
                         uc: um.UserManagement = Depends(get_user_management)):
     await uc.reset_password(um.ResetUserPasswordRequest(
         id=id, password=body.password, updated_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 @router.get("/users/{id}", response_model=res.UserResponse,
@@ -279,11 +277,11 @@ async def user_update(id: UUID, body: req.UserPatchRequest, actor: UUID = Depend
     await uc.update_by_id(um.UpdateUserRequest(
         id=id, role_id=body.role_id, name=body.name, bio=body.bio, username=body.username,
         updated_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)
 
 
 @router.delete("/users/{id}", status_code=204, dependencies=[Depends(require("user:remove"))])
 async def user_delete(id: UUID, actor: UUID = Depends(get_actor_id),
                       uc: um.UserManagement = Depends(get_user_management)):
     await uc.delete_by_id(um.DeleteUserRequest(id=id, deleted_by=actor))
-    return _NO_CONTENT
+    return Response(status_code=204)

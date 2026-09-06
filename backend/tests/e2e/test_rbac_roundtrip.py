@@ -52,6 +52,26 @@ async def test_full_rbac_roundtrip(e2e_client, super_headers):
 
 
 @pytest.mark.asyncio
+async def test_login_wrong_password_is_401(e2e_client):
+    resp = await e2e_client.post("/api/v1/auth/login",
+                                 json={"username": "user", "password": "wrong-password"})
+    assert resp.status_code == 401
+    assert set(resp.json()) == {"error", "message"}
+
+
+@pytest.mark.asyncio
+async def test_change_password_wrong_current_is_401(e2e_client):
+    login = await e2e_client.post("/api/v1/auth/login",
+                                  json={"username": "user", "password": "changeme12345"})
+    assert login.status_code == 200
+    user_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    resp = await e2e_client.patch("/api/v1/profile/password", headers=user_headers, json={
+        "current_password": "not-the-current-one", "new_password": "brandnew12345",
+    })
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_domain_error_body_shape(e2e_client, super_headers):
     resp = await e2e_client.get("/api/v1/admin/roles/by-name/does-not-exist",
                                 headers=super_headers)

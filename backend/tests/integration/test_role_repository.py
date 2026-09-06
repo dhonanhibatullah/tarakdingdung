@@ -32,6 +32,20 @@ async def test_only_one_default_after_create_and_update(roles):
 
 
 @pytest.mark.asyncio
+async def test_set_default_missing_role_rolls_back_default_unset(roles):
+    a = await roles.create(name="keep_default_a", description=None, is_default=True,
+                           created_by=None)
+    await roles.create(name="keep_default_b", description=None, is_default=None,
+                       created_by=None)
+    assert (await roles.read_default()).id == a
+    with pytest.raises(DomainError) as ei:
+        await roles.update_by_id(uuid.uuid4(), is_default=True, updated_by=None)
+    assert ei.value.type is ErrorType.NOT_FOUND
+    # the unset-others must have rolled back: role A is still the default
+    assert (await roles.read_default()).id == a
+
+
+@pytest.mark.asyncio
 async def test_read_permissions_returns_assigned(db, roles):
     from tarakdingdung.infrastructure.repository.permission.repository import (
         SqlAlchemyPermissionRepository,
