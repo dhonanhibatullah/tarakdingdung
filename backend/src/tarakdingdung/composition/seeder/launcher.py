@@ -1,0 +1,73 @@
+import asyncio
+import json
+from pathlib import Path
+
+from tarakdingdung.composition.main.driver import build_driver
+from tarakdingdung.composition.main.infrastructure import Infrastructure, build_infrastructure
+from tarakdingdung.config.settings import Settings
+
+_SEED_DIR = Path(__file__).resolve().parents[4] / "database" / "seeder"
+
+
+def _load(name: str) -> list[dict]:
+    return json.loads((_SEED_DIR / name).read_text(encoding="utf-8"))
+
+
+async def seed(infra: Infrastructure, settings: Settings) -> None:
+    permissions = _load("permission.json")
+    roles = _load("role.json")
+    users = _load("user.json")
+
+    password_overrides = {
+        "super": settings.seed_super_password,
+        "admin": settings.seed_admin_password,
+        "user": settings.seed_user_password,
+    }
+
+    async def _do() -> None:
+        perm_ids: dict[str, object] = {}
+        for entry in permissions:
+            existing = await infra.permissions.read_by_name(entry["name"])
+            if existing is None:
+                perm_ids[entry["name"]] = await infra.permissions.create(
+                    name=entry["name"], description=entry.get("description"), created_by=None)
+            else:
+                perm_ids[entry["name"]] = existing.id
+
+        role_ids: dict[str, object] = {}
+        for entry in roles:
+            existing = await infra.roles.read_by_name(entry["name"])
+            if existing is None:
+                role_id = await infra.roles.create(
+                    name=entry["name"], description=entry.get("description"),
+                    is_default=entry.get("is_default", False), created_by=None)
+            else:
+                role_id = existing.id
+            role_ids[entry["name"]] = role_id
+            for perm_name in entry.get("permissions", []):
+                pid = perm_ids[perm_name]
+                link = await infra.role_permissions.read_by_role_id_and_permission_id(role_id, pid)
+                if link is None:
+                    await infra.role_permissions.create(
+                        role_id=role_id, permission_id=pid, created_by=None)
+
+        for entry in users:
+            if await infra.users.read_by_username(entry["username"]) is not None:
+                continue
+            raw = password_overrides.get(entry["role_name"]) or entry["password"]
+            password_hash = await infra.password.hash(raw)
+            await infra.users.create(
+                role_id=role_ids[entry["role_name"]], name=entry["name"], bio=None,
+                username=entry["username"], password_hash=password_hash, created_by=None)
+
+    await infra.transactor.run(_do)
+
+
+def run() -> None:
+    settings = Settings()
+    driver = build_driver(settings)
+    infra = build_infrastructure(driver, settings)
+    try:
+        asyncio.run(seed(infra, settings))
+    finally:
+        asyncio.run(driver.database.dispose())
