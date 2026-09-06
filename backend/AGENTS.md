@@ -24,7 +24,7 @@ imports `infrastructure/`.
 - `presentation/http/{routers,dependencies,schemas,utils}` — FastAPI.
 - `composition/main/{driver,infrastructure,application,presentation,launcher}`.
 - `composition/seeder` — `python -m tarakdingdung.composition.seeder`.
-- `migrations/` — Alembic; `database/seeder/*.json` — seed data.
+- `database/migrations/` — Alembic; `database/seeder/*.json` — seed data.
 
 ## Conventions
 

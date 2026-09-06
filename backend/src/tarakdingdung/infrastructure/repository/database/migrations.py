@@ -8,7 +8,7 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[5]
 
 def alembic_config(dsn: str) -> Config:
     cfg = Config(str(_BACKEND_ROOT / "alembic.ini"))
-    cfg.set_main_option("script_location", str(_BACKEND_ROOT / "migrations"))
+    cfg.set_main_option("script_location", str(_BACKEND_ROOT / "database" / "migrations"))
     cfg.set_main_option("sqlalchemy.url", dsn)
     return cfg
 
