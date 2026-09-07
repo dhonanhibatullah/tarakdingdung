@@ -1,0 +1,20 @@
+# Secrets never enter the image. The compose file passes .env at run time
+# through env_file, so a baked-in copy would only be a leak waiting to happen.
+.env
+.env.*
+!.env.example
+
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+tests/
+docs/
+.todo
+Dockerfile
+docker-compose.yml
+.dockerignore

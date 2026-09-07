@@ -82,3 +82,32 @@ def _seeded_count(filename: str) -> int:
 def _seeded_role(name: str) -> dict:
     roles = json.loads((_seed_dir() / "role.json").read_text())
     return next(role for role in roles if role["name"] == name)
+
+
+@pytest.mark.asyncio
+async def test_seeder_entrypoint_releases_its_connections(monkeypatch, migrated_url):
+    """Covers ``run()`` itself, not just ``seed()``.
+
+    The entrypoint used two ``asyncio.run`` calls, which disposed the pool from
+    a loop that had not opened its connections — asyncpg raises on that, and it
+    only surfaced when the seeder ran as a process rather than as a coroutine
+    inside a test.
+    """
+    from tarakdingdung.composition.seeder import launcher
+
+    settings = _settings_for(migrated_url)
+    await launcher._run(settings)
+    # Idempotent, and a second pass exercises the release path again.
+    await launcher._run(settings)
+
+
+def _settings_for(url: str) -> Settings:
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    return Settings(
+        postgres_host=parsed.hostname or "127.0.0.1",
+        postgres_port=parsed.port or 5432,
+        postgres_username=parsed.username or "postgres",
+        postgres_password=parsed.password or "postgres",
+        postgres_database=(parsed.path or "/postgres").lstrip("/"))

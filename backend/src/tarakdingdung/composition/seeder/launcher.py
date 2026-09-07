@@ -63,11 +63,20 @@ async def seed(infra: Infrastructure, settings: Settings) -> None:
     await infra.transactor.run(_do)
 
 
-def run() -> None:
-    settings = Settings()
+async def _run(settings: Settings) -> None:
+    """Seed and release, inside one event loop.
+
+    Both halves must share a loop: asyncpg binds a connection to the loop that
+    opened it, so disposing the pool from a second ``asyncio.run`` tears down
+    connections that belong to a loop which no longer exists.
+    """
     driver = build_driver(settings)
-    infra = build_infrastructure(driver, settings)
     try:
-        asyncio.run(seed(infra, settings))
+        await seed(build_infrastructure(driver, settings), settings)
     finally:
-        asyncio.run(driver.database.dispose())
+        await driver.database.dispose()
+        await driver.http.aclose()
+
+
+def run() -> None:
+    asyncio.run(_run(Settings()))

@@ -1,0 +1,42 @@
+name: tarakdingdung
+
+# The database is external and not managed here. Connection settings come from
+# .env, so pointing at a different instance is an .env change rather than a
+# compose change.
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file:
+    - .env
+  environment:
+    # Bind inside the container, not on whatever the host uses. The published
+    # port below is what controls host reachability.
+    TRDD_BE_HTTP_HOST: 0.0.0.0
+  extra_hosts:
+    # Lets TRDD_BE_POSTGRES_HOST=host.docker.internal reach a database running
+    # on the host itself. A LAN address needs nothing extra; 127.0.0.1 would
+    # otherwise resolve to the container.
+    - "host.docker.internal:host-gateway"
+
+services:
+  backend:
+    <<: *backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # One-shot: `docker compose run --rm seeder`. Shares the backend image, so it
+  # cannot seed with different code than the app is running.
+  seeder:
+    <<: *backend
+    command: ["seed"]
+    restart: "no"
+    profiles: ["tools"]
