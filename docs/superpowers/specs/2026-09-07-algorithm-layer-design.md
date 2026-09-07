@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-07
 - **Status:** approved
-- **Scope:** contracts and models only; no implementations
+- **Scope:** contracts and models; Phase 3 implementations added 2026-09-07
 - **Source:** `docs/researches/summaries/004_Automated_Trading_Engine_Implementation_Plan.md`
 
 ## Problem
@@ -107,9 +107,19 @@ proxy can stand beside it.
 | `strategy.py` | `Strategy` | `decide(snapshot, portfolio) -> TargetWeights` |
 
 Exactly the boundary summary 004 §2 specifies. A `PipelineStrategy` in
-infrastructure chains universe → feature → signal → allocation → risk; a later
-trained policy is a different `Strategy` that skips the chain entirely. Neither
-is visible to callers.
+infrastructure chains universe → feature → signal → allocation; a later trained
+policy is a different `Strategy` that skips the chain entirely. Neither is
+visible to callers.
+
+**The risk overlay sits outside the strategy, not at the end of the pipeline.**
+An earlier draft of this section put `risk` at the tail of the chain, which
+cannot work: `RiskRule` needs a `RiskState` — peak equity, daily P&L, trailing
+volatility — that `Strategy.decide` does not receive and should not, because
+that state is history the engine owns rather than a fact about the market.
+Summary 004 §5 already places the risk manager between strategy and executor,
+and keeping it there is better anyway: the overlay then applies to *every*
+strategy, including ones that never use this pipeline. The engine's cycle is
+`decide → risk → rebalance → plan orders → execute`.
 
 Not in this package: clocks, repositories, exchange clients, order submission.
 Sending a `PlannedOrder` belongs to `domain/contracts/execution/`, as summary
@@ -303,9 +313,25 @@ change that ships no implementations buys nothing. Revisit in Phase 3.
 Not tested: the ABCs themselves, and anything requiring a live exchange. The
 seam between this layer and reality is `MarketSnapshot`, fed by fixtures.
 
+## Known gaps
+
+**Volatility targeting cannot be expressed.** `Allocator.allocate(signals,
+portfolio)` does not receive the `FeatureSet`, so an allocator cannot size
+positions by realised volatility — the standard way to equalise risk across
+assets. `EqualWeightAllocator` and `ConvictionWeightedAllocator` work within the
+signature; a volatility-targeting one would need features threaded through,
+either by widening the signature or by having the signal generator fold
+volatility into the score. Deferred rather than patched: the right fix depends
+on whether Phase 3 backtests show equal weighting is actually the binding
+constraint, and widening the signature now would be guessing.
+
+**Spot-only is a convention, not an invariant.** `TargetWeights` permits
+negative weights, but neither venue supports shorting, so every v1
+implementation is long-only by default. The models allow shorts so that an
+offshore perp venue would not require reshaping the layer; nothing yet stops a
+strategy from emitting a weight it cannot hold.
+
 ## Out of scope
 
-- Implementations of any contract, including `PipelineStrategy` and
-  `CompositeRiskRule`, which land in `infrastructure/algorithm/` in Phase 3.
 - The backtester, the collector, the executor and the engine loop.
 - Persistence of any model in this layer.
