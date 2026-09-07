@@ -30,6 +30,8 @@ async def test_seed_is_idempotent_and_links_permissions(migrated_url):
             perms = await s.scalar(text("SELECT count(*) FROM permissions WHERE deleted_at IS NULL"))
             roles = await s.scalar(text("SELECT count(*) FROM roles WHERE deleted_at IS NULL"))
             users = await s.scalar(text("SELECT count(*) FROM users WHERE deleted_at IS NULL"))
+            strategies = await s.scalar(text(
+                "SELECT count(*) FROM strategies WHERE deleted_at IS NULL"))
             super_links = await s.scalar(text(
                 "SELECT count(*) FROM role_permission rp "
                 "JOIN roles r ON r.id = rp.role_id WHERE r.name = 'super'"))
@@ -39,10 +41,17 @@ async def test_seed_is_idempotent_and_links_permissions(migrated_url):
         # permission is a routine change and should not break this test.
         assert perms == _seeded_count("permission.json")
         assert roles == _seeded_count("role.json") and users == 3
+        assert strategies == _seeded_count("strategy.json")
         assert super_links == len(_seeded_role("super")["permissions"])
         assert default_role == "user"
+
+        seeded = await infra.strategies.read_by_name("idx-momentum")
+        assert seeded is not None and seeded.mode is not None
+        assert [f"{s.base}/{s.quote}" for s in seeded.universe] == [
+            "BTC/IDR", "ETH/IDR", "SOL/IDR"]
     finally:
         async with driver.database.session() as s:
+            await s.execute(text("DELETE FROM strategies"))
             await s.execute(text("DELETE FROM role_permission"))
             await s.execute(text("DELETE FROM users"))
             await s.execute(text("DELETE FROM roles"))
@@ -62,6 +71,7 @@ async def test_seed_hashes_password_from_settings(migrated_url):
         await infra.password.compare(user.password_hash, "superpass12")  # no raise
     finally:
         async with driver.database.session() as s:
+            await s.execute(text("DELETE FROM strategies"))
             await s.execute(text("DELETE FROM role_permission"))
             await s.execute(text("DELETE FROM users"))
             await s.execute(text("DELETE FROM roles"))
@@ -96,9 +106,17 @@ async def test_seeder_entrypoint_releases_its_connections(monkeypatch, migrated_
     from tarakdingdung.composition.seeder import launcher
 
     settings = _settings_for(migrated_url)
-    await launcher._run(settings)
-    # Idempotent, and a second pass exercises the release path again.
-    await launcher._run(settings)
+    try:
+        await launcher._run(settings)
+        # Idempotent, and a second pass exercises the release path again.
+        await launcher._run(settings)
+    finally:
+        driver = build_driver(settings)
+        async with driver.database.session() as s:
+            for table in ("strategies", "role_permission", "users", "roles", "permissions"):
+                await s.execute(text(f"DELETE FROM {table}"))
+            await s.commit()
+        await driver.database.dispose()
 
 
 def _settings_for(url: str) -> Settings:

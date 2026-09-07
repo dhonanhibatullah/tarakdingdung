@@ -5,6 +5,8 @@ from pathlib import Path
 from tarakdingdung.composition.main.driver import build_driver
 from tarakdingdung.composition.main.infrastructure import Infrastructure, build_infrastructure
 from tarakdingdung.config.settings import Settings
+from tarakdingdung.domain.models.market import Symbol, Venue
+from tarakdingdung.domain.models.strategy import TradingMode
 
 _SEED_DIR = Path(__file__).resolve().parents[4] / "database" / "seeder"
 
@@ -17,6 +19,7 @@ async def seed(infra: Infrastructure, settings: Settings) -> None:
     permissions = _load("permission.json")
     roles = _load("role.json")
     users = _load("user.json")
+    strategies = _load("strategy.json")
 
     password_overrides = {
         "super": settings.seed_super_password,
@@ -59,6 +62,19 @@ async def seed(infra: Infrastructure, settings: Settings) -> None:
             await infra.users.create(
                 role_id=role_ids[entry["role_name"]], name=entry["name"], bio=None,
                 username=entry["username"], password_hash=password_hash, created_by=None)
+
+        for entry in strategies:
+            if await infra.strategies.read_by_name(entry["name"]) is not None:
+                continue
+            universe = tuple(
+                Symbol(venue=Venue(item["venue"].upper()),
+                       base=item["base"].upper(), quote=item["quote"].upper())
+                for item in entry.get("universe", []))
+            await infra.strategies.create(
+                name=entry["name"], description=entry.get("description"),
+                kind=entry["kind"], mode=TradingMode(entry["mode"].upper()),
+                universe=universe, parameters=entry.get("parameters") or {},
+                is_enabled=entry.get("is_enabled", False), created_by=None)
 
     await infra.transactor.run(_do)
 
