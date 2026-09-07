@@ -202,15 +202,14 @@ async def test_cancel_reaches_every_venue_before_surfacing_a_failure():
     assert working.cancelled == [(TKO,)]
 
 
-# --- tokocrypto live ------------------------------------------------------
+# --- tokocrypto live (legacy /open/v1 signed API) -------------------------
 
 from tarakdingdung.infrastructure.execution.live.tokocrypto import TokocryptoLiveExecutor
 
 
-class StubTokocryptoV3Trade:
-    def __init__(self, *, create=None, error=None, query_error=None, resting=()):
-        self.create = create or {"orderId": 99, "transactTime": 1_757_000_000_000,
-                                 "fills": []}
+class StubTokocryptoTrade:
+    def __init__(self, *, error: DomainError | None = None,
+                 query_error: DomainError | None = None, resting=()) -> None:
         self.error = error
         self.query_error = query_error
         self.resting = list(resting)
@@ -221,9 +220,9 @@ class StubTokocryptoV3Trade:
         if self.error is not None:
             raise self.error
         self.created.append(kw)
-        return self.create
+        return {"orderId": 501}
 
-    async def open_orders(self, *, symbol=None):
+    async def all_orders(self, *, symbol, **kw):
         return self.resting
 
     async def cancel_order(self, **kw):
@@ -233,155 +232,73 @@ class StubTokocryptoV3Trade:
     async def query_order(self, **kw):
         if self.query_error is not None:
             raise self.query_error
-        return {"status": "FILLED"}
+        return {"status": 2}
 
 
-def tko_live(**kw):
-    stub = StubTokocryptoV3Trade(**kw)
+def tko_live(**kw) -> tuple[TokocryptoLiveExecutor, StubTokocryptoTrade]:
+    stub = StubTokocryptoTrade(**kw)
     return TokocryptoLiveExecutor(trade=stub, logger=NullLogger()), stub
 
 
-async def test_tko_submit_records_venue_id_and_string_enums():
+async def test_tko_submit_accepts_and_records_the_venue_id():
     executor, stub = tko_live()
     result = await executor.submit((order(TKO),))
-    assert result.accepted[0].venue_order_id == "99"
-    assert stub.created[0]["symbol"] == "BTCUSDT"
-    assert stub.created[0]["side"] == "BUY"
-    assert stub.created[0]["type"] == "LIMIT"
-    assert stub.created[0]["new_order_resp_type"] == "FULL"
-
-
-async def test_tko_submit_maps_fills_from_a_full_response():
-    executor, stub = tko_live(create={
-        "orderId": 5, "transactTime": 1_757_000_000_123,
-        "fills": [{"price": "100.0", "qty": "0.4", "commission": "0.04",
-                   "commissionAsset": "USDT"},
-                  {"price": "101.0", "qty": "0.6", "commission": "0.06",
-                   "commissionAsset": "USDT"}]})
-    result = await executor.submit((order(TKO),))
-    assert [str(f.price) for f in result.fills] == ["100.0", "101.0"]
-    assert [str(f.quantity) for f in result.fills] == ["0.4", "0.6"]
-    assert result.fills[0].fee == Decimal("0.04")
-    assert result.fills[0].timestamp == 1_757_000_000_123
-
-
-async def test_tko_fee_in_a_foreign_asset_is_recorded_as_zero():
-    recorded: list[str] = []
-
-    class Rec(NullLogger):
-        async def warn(self, tag, message, meta):
-            recorded.append(message)
-
-    stub = StubTokocryptoV3Trade(create={
-        "orderId": 7, "transactTime": 1,
-        "fills": [{"price": "100", "qty": "1", "commission": "0.001",
-                   "commissionAsset": "BNB"}]})
-    executor = TokocryptoLiveExecutor(trade=stub, logger=Rec())
-    result = await executor.submit((order(TKO),))
-    assert result.fills[0].fee == Decimal(0)
-    assert recorded and "foreign asset" in recorded[0]
-
-
-async def test_tko_a_garbage_fill_row_is_skipped_without_losing_the_ack():
-    # A single unparseable fill row must not sink the whole submission: the
-    # order is live at the venue and needs its journal record.
-    executor, _ = tko_live(create={
-        "orderId": 5, "transactTime": 1_757_000_000_123,
-        "fills": [{"price": "100.0", "qty": "0.4", "commission": "0.04",
-                   "commissionAsset": "USDT"},
-                  {"price": "not-a-number", "qty": "1", "commissionAsset": "USDT"}]})
-    result = await executor.submit((order(TKO),))
-    assert len(result.accepted) == 1
-    assert len(result.fills) == 1
-    assert str(result.fills[0].price) == "100.0"
-
-
-async def test_tko_a_non_numeric_transact_time_does_not_sink_the_submit():
-    executor, _ = tko_live(create={
-        "orderId": 6, "transactTime": "oops",
-        "fills": [{"price": "100.0", "qty": "1", "commission": "0.01",
-                   "commissionAsset": "USDT"}]})
-    result = await executor.submit((order(TKO),))
-    assert len(result.accepted) == 1
-    assert result.fills[0].timestamp == 0
-
-
-async def test_tko_market_order_sends_no_time_in_force():
-    executor, stub = tko_live()
-    market = PlannedOrder(symbol=TKO, side=Side.BUY, type=OrderType.MARKET,
-                          quantity=Decimal("1"), price=None,
-                          time_in_force=TimeInForce.GTC, client_order_id="tdd9")
-    await executor.submit((market,))
-    assert stub.created[0]["time_in_force"] is None
-
-
-async def test_tko_limit_gtx_is_refused_with_bad_args():
-    executor, _ = tko_live()
-    gtx = PlannedOrder(symbol=TKO, side=Side.BUY, type=OrderType.LIMIT,
-                       quantity=Decimal("1"), price=Decimal("100"),
-                       time_in_force=TimeInForce.GTX, client_order_id="tdd9")
-    result = await executor.submit((gtx,))
-    assert len(result.rejected) == 1
-    assert "GTX" in result.rejected[0].reason
-
-
-async def test_tko_cancel_all_carries_the_order_id_when_no_client_id():
-    executor, stub = tko_live(resting=[{"orderId": 77}])
-    await executor.cancel_all((TKO,))
-    assert stub.cancelled[0]["order_id"] == 77
-    assert stub.cancelled[0]["orig_client_order_id"] is None
-
-
-async def test_tko_missing_commission_asset_still_warns():
-    recorded: list[str] = []
-
-    class Rec(NullLogger):
-        async def warn(self, tag, message, meta):
-            recorded.append(message)
-
-    stub = StubTokocryptoV3Trade(create={
-        "orderId": 7, "transactTime": 1,
-        "fills": [{"price": "100", "qty": "1"}]})
-    executor = TokocryptoLiveExecutor(trade=stub, logger=Rec())
-    result = await executor.submit((order(TKO),))
-    assert result.fills[0].fee == Decimal(0)
-    assert recorded and "foreign asset" in recorded[0]
-
-
-async def test_tko_resting_limit_has_no_fills_but_is_accepted():
-    executor, _ = tko_live(create={"orderId": 8, "transactTime": 1, "fills": []})
-    result = await executor.submit((order(TKO),))
-    assert len(result.accepted) == 1
+    assert result.accepted[0].venue_order_id == "501"
+    assert stub.created[0]["symbol"] == "BTC_USDT"
+    assert stub.created[0]["side"] == 0      # /open/v1 encodes side/type as ints
+    assert stub.created[0]["type"] == 1
+    assert stub.created[0]["client_id"] == "tdd1"
+    # Like Indodax, the create ack does not carry fills; they arrive via the
+    # portfolio sync and the reconcile path.
     assert result.fills == ()
+    assert result.is_complete
 
 
 async def test_tko_a_venue_verdict_becomes_a_rejection():
     executor, _ = tko_live(error=DomainError("bad price", ErrorType.BAD_ARGS))
     result = await executor.submit((order(TKO),))
-    assert len(result.rejected) == 1 and result.is_complete
+    assert len(result.rejected) == 1
+    assert result.unconfirmed == ()
+    assert result.is_complete
 
 
-async def test_tko_a_timeout_is_unconfirmed():
+async def test_tko_a_timeout_becomes_unconfirmed_not_rejected():
     executor, _ = tko_live(error=DomainError("timed out", ErrorType.TIMEOUT))
     result = await executor.submit((order(TKO),))
-    assert len(result.unconfirmed) == 1 and result.is_complete is False
+    assert result.rejected == ()
+    assert len(result.unconfirmed) == 1
+    assert result.is_complete is False
 
 
-async def test_tko_cancel_all_pulls_resting_orders_by_client_id():
-    executor, stub = tko_live(resting=[{"clientOrderId": "a"}, {"clientOrderId": "b"}])
+async def test_tko_cancel_all_pulls_the_resting_orders():
+    executor, stub = tko_live(resting=[
+        {"orderId": 1, "clientId": "a", "status": 0},   # NEW
+        {"orderId": 2, "clientId": "b", "status": 1},   # PARTIALLY_FILLED
+    ])
     await executor.cancel_all((TKO,))
-    assert [c["orig_client_order_id"] for c in stub.cancelled] == ["a", "b"]
-    assert stub.cancelled[0]["symbol"] == "BTCUSDT"
+    assert [c["order_id"] for c in stub.cancelled] == [1, 2]
 
 
-async def test_tko_lookup_needs_a_symbol():
+async def test_tko_cancel_all_leaves_settled_orders_alone():
+    executor, stub = tko_live(resting=[{"orderId": 9, "clientId": "z", "status": 2}])
+    await executor.cancel_all((TKO,))
+    assert stub.cancelled == []
+
+
+async def test_tko_lookup_by_client_id_needs_no_symbol():
+    # Unlike Indodax, /open/v1 resolves an order from the client id alone.
     executor, _ = tko_live()
-    with pytest.raises(DomainError) as e:
-        await executor.read_by_client_order_id("tdd1")
-    assert e.value.type is ErrorType.UNIMPLEMENTED
+    result = await executor.read_by_client_order_id("tdd1")
+    assert result == ExecutionResult((), (), (), ())
 
 
 async def test_tko_lookup_treats_not_found_as_a_failed_submission():
-    executor, _ = tko_live(query_error=DomainError("no", ErrorType.NOT_FOUND))
-    result = await executor.read_by_client_order_id("tdd1", symbol=TKO)
+    executor, _ = tko_live(query_error=DomainError("no such order", ErrorType.NOT_FOUND))
+    result = await executor.read_by_client_order_id("tdd1")
     assert result == ExecutionResult((), (), (), ())
+
+
+async def test_tko_lookup_reraises_a_non_not_found_error():
+    executor, _ = tko_live(query_error=DomainError("venue down", ErrorType.UPSTREAM))
+    with pytest.raises(DomainError):
+        await executor.read_by_client_order_id("tdd1")

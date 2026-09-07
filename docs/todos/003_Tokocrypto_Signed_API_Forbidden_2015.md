@@ -1,12 +1,60 @@
 # 003 — Tokocrypto signed `/api/v3` calls rejected with `-2015`
 
 - **Severity:** high
-- **Status:** open
+- **Status:** **done (code side) — Path B applied, commit `<pending>`.** Operator
+  should still regenerate the API key withdraw-disabled (see security note).
 - **Detected:** 2026-09-07, signed probe + in-container portfolio sync
-- **Area:** operational / credentials, not a code bug in the v3 client itself
-- **Narrowed 2026-09-07:** IP allowlist and key permissions both ruled out
-  (see below) — the key is almost certainly not valid for the Binance-standard
-  `.site` host.
+- **Area:** operational / credentials + composition wiring
+- **Root cause (confirmed):** the account's key is valid + trade-enabled only
+  on Tokocrypto's **legacy `/open/v1`** system (`www.tokocrypto.com`); the
+  Binance-standard `/api/v3` host (`www.tokocrypto.site`) rejects it with
+  `-2015`. IP allowlist, permissions and clock drift all ruled out.
+
+## Resolution — Path B: split Tokocrypto by host
+
+Path A (obtaining a Binance-standard API key) was not available for this
+account, so the signed surface moved back to `/open/v1` while market data
+stays on `/api/v3`:
+
+| Concern | Host | Client |
+|---|---|---|
+| Market data (candles / depth / rules) | `www.tokocrypto.site` `/api/v3/*` | `HttpTokocryptoV3MarketApi` — **kept** |
+| Account balances + signed trading | `www.tokocrypto.com` `/open/v1/*` | `HttpTokocryptoV1TradeApi` — **restored** |
+
+Changes:
+
+- `infrastructure/venue/tokocrypto/account.py` and
+  `infrastructure/execution/live/tokocrypto.py` restored to their `/open/v1`
+  forms (state at `d18ca62`) — int side/type codes, `{code,msg,data}`
+  envelope, `BTC_USDT` symbols, `fills=()` on the create ack (fills arrive via
+  the portfolio sync / reconcile, exactly as for Indodax),
+  `read_by_client_order_id` resolves from the client id alone (no symbol
+  needed). A module docstring on each records why the split exists.
+- `composition/main/exchanges.py` — `TokocryptoAccountSource` and
+  `TokocryptoLiveExecutor` take `HttpTokocryptoV1TradeApi` (default host
+  `www.tokocrypto.com`); `TokocryptoMarketDataSource` keeps
+  `HttpTokocryptoV3MarketApi` on `settings.tokocrypto_v3_base_url`.
+- The v3 `tokocrypto/v3/trade.py` contract + client stay in the tree, unused
+  (same as `/open/v1` was during the v3 migration). Its unit tests remain.
+- Tests: `test_executors.py` Tokocrypto section rewritten for the `/open/v1`
+  shape; `test_exchanges.py` asserts the market/account/executor host split;
+  `test_adapters.py` account test unchanged (the `/open/v1` account source was
+  never modified by the migration).
+
+**Verified in Docker** with a Tokocrypto (USDT) strategy: `collect` wrote 400
+candles from `/api/v3`; **portfolio sync succeeded via `/open/v1`** —
+`unreachable: []`, no `-2015` (previously `WARN "failed to read balances"
+[-2015]`, `unreachable: ['TOKOCRYPTO']`). Full suite 734 passing.
+
+> **Still for the operator:** the key has `canWithdraw=1`. Regenerate it
+> withdraw-disabled (read + spot trade only, IP `118.99.94.221`). Also note
+> the account holds IDR, not USDT — a USDT-quoted Tokocrypto strategy will see
+> a zero balance and the risk overlay will halt it; trade Tokocrypto's
+> IDR-quoted pairs, or convert some balance to USDT first.
+
+---
+
+## Original investigation
 
 ## Symptom
 

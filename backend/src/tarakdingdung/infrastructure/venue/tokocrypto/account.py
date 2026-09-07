@@ -1,23 +1,30 @@
+"""Tokocrypto account balances over the legacy signed `/open/v1` API.
+
+This account's key only works on `/open/v1` (`www.tokocrypto.com`), not the
+Binance-standard `/api/v3` host — see docs/todos/003. Market data still uses
+`/api/v3`; only the signed surface stays on `/open/v1`.
+"""
+
 from collections.abc import Mapping
 from decimal import Decimal
 
 from tarakdingdung.domain.contracts.api.account_source import AccountSource
-from tarakdingdung.domain.contracts.api.tokocrypto.v3.trade import TokocryptoV3TradeApi
+from tarakdingdung.domain.contracts.api.tokocrypto.v1.trade import TokocryptoV1TradeApi
 from tarakdingdung.infrastructure.venue.shared import to_decimal
 
 
 class TokocryptoAccountSource(AccountSource):
-    """Free balances per asset from the Binance-standard `/api/v3/account`."""
+    """Free balances per asset from the Tokocrypto account endpoint."""
 
     _VENUE = "tokocrypto"
 
-    def __init__(self, *, trade: TokocryptoV3TradeApi) -> None:
+    def __init__(self, *, trade: TokocryptoV1TradeApi) -> None:
         self._trade = trade
 
     async def fetch_balances(self) -> Mapping[str, Decimal]:
         payload = await self._trade.account()
         balances = {}
-        for entry in payload.get("balances") or []:
+        for entry in payload.get("accountAssets") or payload.get("balances") or []:
             asset = (entry.get("asset") or "").upper()
             if not asset:
                 continue

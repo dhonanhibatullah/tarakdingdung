@@ -11,7 +11,7 @@ worked · `done` — fixed and verified · `wontfix` — deliberately not addres
 |-----|------|---------|----------|--------|
 | 001 | `001_Backtest_Replay_Non_Functional.md` | Backtest (and walk-forward validation) replayed 0 cycles / 0 trades against real collected data and returned an all-zero report with no error. The collector never stores the historical price & order-book *series* the replay needs. | blocker | **done** |
 | 002 | `002_Docker_Compose_Port_Mismatch_Unhealthy.md` | `docker compose up` produced a permanently-unhealthy container and an unreachable host port whenever `TRDD_BE_HTTP_PORT` was set (the project's own `.env.example` sets it). | high | **done** |
-| 003 | `003_Tokocrypto_Signed_API_Forbidden_2015.md` | Signed Tokocrypto `/api/v3` calls return `-2015`. **Root cause confirmed:** the key is valid + trade-enabled but only on the **legacy `/open/v1`** host — not the Binance-standard `.site` host the v3 migration targeted. IP and permissions ruled out. Fix is Path A (get a standard-API key) or Path B (scoped partial revert: market data on `/api/v3`, signed trading back on `/open/v1`). Key also has withdraw enabled — regenerate withdraw-disabled. | high | **open — awaiting operator decision (A or B)** |
+| 003 | `003_Tokocrypto_Signed_API_Forbidden_2015.md` | Signed Tokocrypto `/api/v3` calls returned `-2015` — the key is valid but only on the **legacy `/open/v1`** host. **Fixed (Path B):** account + signed trading moved back to `/open/v1`, market data stays on `/api/v3`; portfolio sync now succeeds. Operator should still regenerate the key withdraw-disabled. | high | **done (code) — operator: regen key withdraw-disabled** |
 | 004 | `004_Paper_Trading_Via_Engine_Not_Simulated.md` | A PAPER strategy stepped by the cron engine wrote orphaned fills; the portfolio is rebuilt from real venue balances, so paper positions never materialised. | medium | **done** |
 | 005 | `005_Prices_And_Order_Books_Grow_Unbounded.md` | The collector `INSERT`ed (not upserted) a `prices` and `order_books` row every run with no retention — unbounded growth, duplicate rows. | low | **done** |
 | 006 | `006_Coverage_Completeness_Below_One_With_No_Gaps.md` | `GET /trading/coverage` reported `completeness < 1.0` with an empty `gaps` list when the window extends past the newest stored candle — misleading for the "check before trusting a backtest" use case. | low | **done** |
@@ -32,7 +32,11 @@ validation replay path** and **Docker packaging**.
 
 ## Status
 
-**001, 002, 004, 005, 006, 007, 008 are fixed** (full test suite 741 passing;
-each re-verified in Docker against the real DB + live Indodax data). **003
-remains open** — it is a credentials / IP-allowlist issue that no code change
-resolves; see the file for the operator steps.
+**All eight are addressed** (full test suite 734 passing; each re-verified in
+Docker against the real DB and the live Indodax / Tokocrypto APIs).
+
+- 001, 002, 004, 005, 006, 007, 008 — fixed outright.
+- 003 — the code side is done (Path B: Tokocrypto signed calls back on
+  `/open/v1`, market data on `/api/v3`; portfolio sync verified working). One
+  operator action remains: regenerate the Tokocrypto API key **withdraw-
+  disabled** (it currently has `canWithdraw=1`).

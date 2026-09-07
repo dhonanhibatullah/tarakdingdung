@@ -18,11 +18,13 @@ from tarakdingdung.domain.contracts.utility.clock import Clock
 from tarakdingdung.domain.models.market import Venue
 from tarakdingdung.infrastructure.api.indodax.v1.public import HttpIndodaxV1PublicApi
 from tarakdingdung.infrastructure.api.indodax.v2.trade import HttpIndodaxV2TradeApi
+# Tokocrypto's signed surface is split by host: this account's key works only
+# on the legacy `/open/v1` (`www.tokocrypto.com`), while candles are served
+# only by the Binance-standard `/api/v3` (`www.tokocrypto.site`). So market
+# data goes through v3 and account + trading through v1. See docs/todos/003.
+from tarakdingdung.infrastructure.api.tokocrypto.v1.trade import HttpTokocryptoV1TradeApi
 from tarakdingdung.infrastructure.api.tokocrypto.v3.market import (
     HttpTokocryptoV3MarketApi,
-)
-from tarakdingdung.infrastructure.api.tokocrypto.v3.trade import (
-    HttpTokocryptoV3TradeApi,
 )
 from tarakdingdung.infrastructure.execution.live.indodax import IndodaxLiveExecutor
 from tarakdingdung.infrastructure.execution.live.tokocrypto import TokocryptoLiveExecutor
@@ -47,10 +49,9 @@ def build_exchanges(http: httpx.AsyncClient, settings: Settings, *,
         secret_key=settings.indodax_v2_secret_key)
     tokocrypto_market = HttpTokocryptoV3MarketApi(
         http, base_url=settings.tokocrypto_v3_base_url)
-    tokocrypto_trade = HttpTokocryptoV3TradeApi(
+    tokocrypto_trade = HttpTokocryptoV1TradeApi(
         http, api_key=settings.tokocrypto_api_key,
-        secret_key=settings.tokocrypto_secret_key,
-        base_url=settings.tokocrypto_v3_base_url)
+        secret_key=settings.tokocrypto_secret_key)
 
     return Exchanges(
         markets={
