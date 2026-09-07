@@ -5,15 +5,16 @@ from tarakdingdung.domain.contracts.algorithm.rebalance import Rebalancer
 from tarakdingdung.domain.models.algorithm import Side, TargetWeights, TradeIntent
 from tarakdingdung.domain.models.market import Symbol
 from tarakdingdung.domain.models.portfolio import Portfolio
+from tarakdingdung.infrastructure.algorithm.shared.ordering import symbol_key
 
 
 class NoTradeBandRebalancer(Rebalancer):
     """Trades only the gaps worth trading.
 
-    A band around each target suppresses the constant small corrections that
-    a continuously drifting portfolio would otherwise generate. Turnover is
-    the cost the research says kills otherwise-sound strategies, and most of
-    it comes from rebalancing noise rather than from changed conviction.
+    A band around each target suppresses the constant small corrections a
+    drifting portfolio would otherwise generate. Turnover is the cost the
+    research says kills otherwise-sound strategies, and most of it comes from
+    rebalancing noise rather than from changed conviction.
 
     Symbols held but no longer targeted are exited, so an emptied set of
     weights means "sell everything" rather than "leave it alone".
@@ -31,8 +32,8 @@ class NoTradeBandRebalancer(Rebalancer):
         intents = []
         for symbol in self._symbols(target, portfolio):
             price = prices.get(symbol)
-            # No price means no way to size the trade. Skipping is right:
-            # a stale or guessed price would size a real order wrongly.
+            # No price means no way to size the trade. Skipping is right: a
+            # stale or guessed price would size a real order wrongly.
             if price is None or not price.is_finite() or price <= 0:
                 continue
             drift = target.weights.get(symbol, 0.0) - self._current(
@@ -46,8 +47,7 @@ class NoTradeBandRebalancer(Rebalancer):
 
     def _symbols(self, target: TargetWeights, portfolio: Portfolio) -> list[Symbol]:
         held = {s for s, p in portfolio.positions.items() if p.quantity != 0}
-        return sorted(held | set(target.weights),
-                      key=lambda s: (s.venue, s.base, s.quote))
+        return sorted(held | set(target.weights), key=symbol_key)
 
     def _current(self, symbol: Symbol, portfolio: Portfolio,
                  price: Decimal, equity: Decimal) -> float:

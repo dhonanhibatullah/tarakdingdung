@@ -3,15 +3,23 @@ from decimal import Decimal
 import pytest
 
 from tarakdingdung.domain.models.algorithm import OrderType, TimeInForce
-from tarakdingdung.infrastructure.algorithm.allocation import (
-    ConvictionWeightedAllocator, EqualWeightAllocator,
+from tarakdingdung.infrastructure.algorithm.allocation.conviction_weighted import (
+    ConvictionWeightedAllocator,
 )
-from tarakdingdung.infrastructure.algorithm.cost import DepthWalkCostModel, FlatFeeCostModel
-from tarakdingdung.infrastructure.algorithm.order import VenueRuleOrderPlanner
-from tarakdingdung.infrastructure.algorithm.risk import (
-    CompositeRiskRule, DailyLossHaltRiskRule, DrawdownHaltRiskRule, HaltFlagRiskRule,
-    PerAssetCapRiskRule, PerPositionCapRiskRule, PerVenueCapRiskRule,
-    VolatilityKillSwitchRiskRule, default_overlay,
+from tarakdingdung.infrastructure.algorithm.allocation.equal_weight import EqualWeightAllocator
+from tarakdingdung.infrastructure.algorithm.cost.depth_walk import DepthWalkCostModel
+from tarakdingdung.infrastructure.algorithm.cost.flat_fee import FlatFeeCostModel
+from tarakdingdung.infrastructure.algorithm.order.venue_rule import VenueRuleOrderPlanner
+from tarakdingdung.infrastructure.algorithm.risk.composite import CompositeRiskRule
+from tarakdingdung.infrastructure.algorithm.risk.daily_loss_halt import DailyLossHaltRiskRule
+from tarakdingdung.infrastructure.algorithm.risk.drawdown_halt import DrawdownHaltRiskRule
+from tarakdingdung.infrastructure.algorithm.risk.halt_flag import HaltFlagRiskRule
+from tarakdingdung.infrastructure.algorithm.risk.overlay import default_overlay
+from tarakdingdung.infrastructure.algorithm.risk.per_asset_cap import PerAssetCapRiskRule
+from tarakdingdung.infrastructure.algorithm.risk.per_position_cap import PerPositionCapRiskRule
+from tarakdingdung.infrastructure.algorithm.risk.per_venue_cap import PerVenueCapRiskRule
+from tarakdingdung.infrastructure.algorithm.risk.volatility_kill_switch import (
+    VolatilityKillSwitchRiskRule,
 )
 from tests.infrastructure.algorithm import conformance
 

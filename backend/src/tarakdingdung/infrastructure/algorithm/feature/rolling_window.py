@@ -1,12 +1,10 @@
 from tarakdingdung.domain.contracts.algorithm.feature import FeatureExtractor
 from tarakdingdung.domain.models.algorithm import FeatureSet
-from tarakdingdung.domain.models.market import Candle, MarketSnapshot
+from tarakdingdung.domain.models.market import MarketSnapshot
+from tarakdingdung.infrastructure.algorithm.feature.names import (
+    MOMENTUM, SMA_FAST, SMA_SLOW, VOLATILITY,
+)
 from tarakdingdung.infrastructure.algorithm.shared import statistics
-
-MOMENTUM = "momentum"
-SMA_FAST = "sma_fast"
-SMA_SLOW = "sma_slow"
-VOLATILITY = "volatility"
 
 
 class RollingWindowFeatureExtractor(FeatureExtractor):
@@ -32,8 +30,7 @@ class RollingWindowFeatureExtractor(FeatureExtractor):
         for symbol, candles in snapshot.candles.items():
             if len(candles) < self._required:
                 continue
-            closes = [float(c.close) for c in candles]
-            features = self._features(closes)
+            features = self._features([float(c.close) for c in candles])
             if features is not None:
                 values[symbol] = features
         return FeatureSet(timestamp=snapshot.timestamp, values=values)
@@ -49,7 +46,3 @@ class RollingWindowFeatureExtractor(FeatureExtractor):
             SMA_SLOW: statistics.mean(closes[-self._slow:]),
             VOLATILITY: statistics.stdev(returns),
         }
-
-
-def closes_of(candles: tuple[Candle, ...]) -> tuple[float, ...]:
-    return tuple(float(c.close) for c in candles)

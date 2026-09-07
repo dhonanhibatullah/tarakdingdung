@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from decimal import Decimal
 
 from tarakdingdung.domain.contracts.algorithm.order import OrderPlanner
 from tarakdingdung.domain.models.algorithm import (
@@ -16,7 +17,7 @@ class VenueRuleOrderPlanner(OrderPlanner):
     position the rebalancer asked for, and on a sell can exceed what is held.
 
     Limit prices move in the direction that favours us — a buy is floored to
-    the tick below the reference, a sell is raised to the tick above — so
+    the tick below the reference, a sell raised to the tick above — so
     rounding never silently worsens the price the rebalancer sized against.
 
     Every intent leaves as either an order or a ``RejectedIntent``; nothing is
@@ -61,7 +62,7 @@ class VenueRuleOrderPlanner(OrderPlanner):
                             type=self._type, quantity=quantity, price=price,
                             time_in_force=self._time_in_force)
 
-    def _price(self, intent: TradeIntent, rules: SymbolRules):
+    def _price(self, intent: TradeIntent, rules: SymbolRules) -> Decimal | None:
         if self._type is OrderType.MARKET:
             return None
         if intent.side is Side.BUY:

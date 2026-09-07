@@ -4,7 +4,9 @@ import pytest
 
 from tarakdingdung.domain.models.error import DomainError, ErrorType
 from tarakdingdung.domain.models.performance import TrialResult
-from tarakdingdung.infrastructure.algorithm.validation import CombinatorialOverfittingTest
+from tarakdingdung.infrastructure.algorithm.validation.combinatorial import (
+    CombinatorialOverfittingTest,
+)
 
 
 def trial(label: str, returns) -> TrialResult:

@@ -13,8 +13,8 @@ class CombinatorialOverfittingTest(OverfittingTest):
     cross-validation.
 
     The method, and the ~10% rejection threshold, come from the FinRL-Crypto
-    work that the research identifies as the one broadly transferable technique
-    in the literature — more useful than any particular algorithm.
+    work the research identifies as the one broadly transferable technique in
+    the literature — more useful than any particular algorithm.
 
     How it works: the return series is cut into ``subsets`` equal blocks. For
     every way of choosing half the blocks as in-sample, the best in-sample

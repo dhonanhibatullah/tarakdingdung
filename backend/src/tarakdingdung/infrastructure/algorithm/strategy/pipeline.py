@@ -7,8 +7,6 @@ from tarakdingdung.domain.models.algorithm import TargetWeights
 from tarakdingdung.domain.models.market import MarketSnapshot, Symbol
 from tarakdingdung.domain.models.portfolio import Portfolio
 
-_SAFETY = 1e-12
-
 
 class PipelineStrategy(Strategy):
     """Chains universe, features, signal and allocation into one strategy.
@@ -29,34 +27,15 @@ class PipelineStrategy(Strategy):
         self._signals = signals
         self._allocator = allocator
 
-    def decide(self, snapshot: MarketSnapshot, portfolio: Portfolio) -> TargetWeights:
+    def decide(self, snapshot: MarketSnapshot,
+               portfolio: Portfolio) -> TargetWeights:
         eligible = self._universe.select(snapshot)
         features = self._features.compute(_restricted(snapshot, eligible))
         return self._allocator.allocate(self._signals.generate(features), portfolio)
 
 
-class BuyAndHoldStrategy(Strategy):
-    """The control every strategy has to beat after costs.
-
-    The research is blunt that most published methods do not beat it, so it is
-    not a formality — it is the null hypothesis, and it is here so that a
-    backtest cannot quietly omit it.
-    """
-
-    def __init__(self, symbols: tuple[Symbol, ...], *, max_gross: float = 1.0) -> None:
-        self._symbols = symbols
-        self._max_gross = max_gross
-
-    def decide(self, snapshot: MarketSnapshot, portfolio: Portfolio) -> TargetWeights:
-        tradable = [s for s in self._symbols if s in snapshot.last_prices]
-        if not tradable:
-            return TargetWeights(timestamp=snapshot.timestamp, weights={})
-        size = (self._max_gross - _SAFETY) / len(tradable)
-        return TargetWeights(timestamp=snapshot.timestamp,
-                             weights={s: size for s in tradable})
-
-
-def _restricted(snapshot: MarketSnapshot, symbols: tuple[Symbol, ...]) -> MarketSnapshot:
+def _restricted(snapshot: MarketSnapshot,
+                symbols: tuple[Symbol, ...]) -> MarketSnapshot:
     """Narrow a snapshot to the eligible universe.
 
     Restricting here rather than filtering later means a symbol excluded by the
