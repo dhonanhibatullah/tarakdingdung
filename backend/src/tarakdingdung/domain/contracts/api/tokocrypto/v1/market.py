@@ -31,3 +31,14 @@ class TokocryptoV1MarketApi(ABC):
     @abstractmethod
     async def klines(self, *, symbol: str, interval: str, start_time: int | None = None,
                      end_time: int | None = None, limit: int | None = None) -> dict: ...
+
+    @abstractmethod
+    async def execution_rules(self, *, symbol: str | None = None, symbols: str | None = None,
+                              symbol_status: str | None = None) -> dict:
+        """Price-range / STP execution rules per symbol. Served from the
+        Binance-standard `.site/api/v3` host, so `symbol` uses the joined form
+        (``BTCUSDT``), not the ``BTC_USDT`` form the `/open/v1/*` endpoints take.
+        """
+        ...
+
+
