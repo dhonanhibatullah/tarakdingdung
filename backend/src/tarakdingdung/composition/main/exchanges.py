@@ -18,8 +18,12 @@ from tarakdingdung.domain.contracts.utility.clock import Clock
 from tarakdingdung.domain.models.market import Venue
 from tarakdingdung.infrastructure.api.indodax.v1.public import HttpIndodaxV1PublicApi
 from tarakdingdung.infrastructure.api.indodax.v2.trade import HttpIndodaxV2TradeApi
-from tarakdingdung.infrastructure.api.tokocrypto.v1.market import HttpTokocryptoV1MarketApi
-from tarakdingdung.infrastructure.api.tokocrypto.v1.trade import HttpTokocryptoV1TradeApi
+from tarakdingdung.infrastructure.api.tokocrypto.v3.market import (
+    HttpTokocryptoV3MarketApi,
+)
+from tarakdingdung.infrastructure.api.tokocrypto.v3.trade import (
+    HttpTokocryptoV3TradeApi,
+)
 from tarakdingdung.infrastructure.execution.live.indodax import IndodaxLiveExecutor
 from tarakdingdung.infrastructure.execution.live.tokocrypto import TokocryptoLiveExecutor
 from tarakdingdung.infrastructure.venue.indodax.account import IndodaxAccountSource
@@ -41,10 +45,12 @@ def build_exchanges(http: httpx.AsyncClient, settings: Settings, *,
     indodax_trade = HttpIndodaxV2TradeApi(
         http, api_key=settings.indodax_v2_api_key,
         secret_key=settings.indodax_v2_secret_key)
-    tokocrypto_market = HttpTokocryptoV1MarketApi(http)
-    tokocrypto_trade = HttpTokocryptoV1TradeApi(
+    tokocrypto_market = HttpTokocryptoV3MarketApi(
+        http, base_url=settings.tokocrypto_v3_base_url)
+    tokocrypto_trade = HttpTokocryptoV3TradeApi(
         http, api_key=settings.tokocrypto_api_key,
-        secret_key=settings.tokocrypto_secret_key)
+        secret_key=settings.tokocrypto_secret_key,
+        base_url=settings.tokocrypto_v3_base_url)
 
     return Exchanges(
         markets={

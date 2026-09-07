@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     tokocrypto_api_key: str = "changemetokocryptoapikey"
     tokocrypto_secret_key: str = "changemetokocryptosecretkey"
+    tokocrypto_v3_base_url: str = "https://www.tokocrypto.site"
     indodax_v1_api_key: str = "changemeindodaxv1apikey"
     indodax_v1_secret_key: str = "changemeindodaxv1secretkey"
     indodax_v2_api_key: str = "changemeindodaxv2apikey"
