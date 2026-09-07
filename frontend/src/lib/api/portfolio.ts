@@ -18,6 +18,12 @@ export interface PortfolioResponse {
   cash: Record<string, string>;
   positions: PositionResponse[];
   equity: string;
+  /**
+   * Per-asset free balance of every reachable venue at the last sync, keyed
+   * `{ venue: { asset: amount } }`. Informational — `equity` stays scoped to
+   * priced positions plus quote cash, so IDR and USDT are never summed.
+   */
+  balances: Record<string, Record<string, string>>;
 }
 
 export interface RiskStateResponse {

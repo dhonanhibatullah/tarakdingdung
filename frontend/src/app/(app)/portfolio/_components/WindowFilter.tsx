@@ -3,9 +3,12 @@ import Link from "next/link";
 interface WindowFilterProps {
   days: number;
   options: number[];
+  /** Preserved so changing the window keeps the selected venue. */
+  venue?: string;
 }
 
-export default function WindowFilter({ days, options }: WindowFilterProps) {
+export default function WindowFilter({ days, options, venue }: WindowFilterProps) {
+  const venueParam = venue ? `&venue=${venue}` : "";
   return (
     <div
       role="group"
@@ -17,7 +20,7 @@ export default function WindowFilter({ days, options }: WindowFilterProps) {
         return (
           <Link
             key={option}
-            href={`/portfolio?days=${option}`}
+            href={`/portfolio?days=${option}${venueParam}`}
             aria-current={active ? "true" : undefined}
             className={`px-3 py-2 ${
               active

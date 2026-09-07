@@ -17,6 +17,7 @@ import { requireAnyPermission } from "@/lib/session";
 import { windowFromDays } from "@/lib/time-window";
 
 import EquitySparkline from "./_components/EquitySparkline";
+import VenueSelect from "./_components/VenueSelect";
 import WindowFilter from "./_components/WindowFilter";
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default async function PortfolioPage({
   await requireAnyPermission(["portfolio:get"]);
   const raw = await searchParams;
   const days = Number(firstQueryValue(raw.days)) || 30;
+  const requestedVenue = firstQueryValue(raw.venue)?.toUpperCase();
   const win = windowFromDays(days);
 
   let current: CurrentPortfolioResponse | null = null;
@@ -55,6 +57,22 @@ export default async function PortfolioPage({
       throw error;
     }
   }
+
+  const balances = current?.portfolio.balances ?? {};
+  const venues = Object.keys(balances).length
+    ? Object.keys(balances).sort()
+    : Object.keys(current?.portfolio.cash ?? {}).sort();
+  const activeVenue =
+    requestedVenue && venues.includes(requestedVenue)
+      ? requestedVenue
+      : (venues[0] ?? "");
+  const venueAssets = Object.entries(balances[activeVenue] ?? {}).sort(
+    ([a], [b]) => a.localeCompare(b),
+  );
+  const venuePositions =
+    current?.portfolio.positions.filter(
+      (pos) => pos.symbol.venue === activeVenue,
+    ) ?? [];
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -94,7 +112,11 @@ export default async function PortfolioPage({
                 ) : (
                   <StatusBadge variant="success">Trading active</StatusBadge>
                 )}
-                <WindowFilter days={days} options={[...DAY_OPTIONS]} />
+                <WindowFilter
+                  days={days}
+                  options={[...DAY_OPTIONS]}
+                  venue={activeVenue || undefined}
+                />
               </div>
             </div>
             <EquitySparkline points={equity.points} />
@@ -103,32 +125,47 @@ export default async function PortfolioPage({
             </p>
           </Card>
 
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-primary text-xl tracking-wide">
+              {activeVenue || "Venue"} holdings
+            </h2>
+            <VenueSelect venues={venues} active={activeVenue} days={days} />
+          </div>
+
           <div className="grid gap-6 lg:grid-cols-2">
             <Card className="space-y-3">
               <h2 className="font-display text-primary text-lg tracking-wide">
-                Cash by venue
+                Balances
               </h2>
-              {Object.keys(current.portfolio.cash).length > 0 ? (
+              {venueAssets.length > 0 ? (
                 <dl className="space-y-2 text-sm">
-                  {Object.entries(current.portfolio.cash).map(([venue, amount]) => (
-                    <div key={venue} className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">{venue}</dt>
+                  {venueAssets.map(([asset, amount]) => (
+                    <div key={asset} className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">{asset}</dt>
                       <dd className="font-mono font-medium">
-                        {formatNumber(amount)}
+                        {formatNumber(amount, 8)}
                       </dd>
                     </div>
                   ))}
                 </dl>
               ) : (
-                <p className="text-muted-foreground text-sm">No cash balances.</p>
+                <p className="text-muted-foreground text-sm">
+                  {venues.length === 0
+                    ? "The last sync recorded no venue balances."
+                    : `Nothing reported on ${activeVenue}.`}
+                </p>
               )}
+              <p className="text-muted-foreground text-xs">
+                Free balance the venue reported. Only priced positions plus
+                quote cash feed the equity figure above.
+              </p>
             </Card>
 
             <Card className="space-y-3">
               <h2 className="font-display text-primary text-lg tracking-wide">
                 Positions
               </h2>
-              {current.portfolio.positions.length > 0 ? (
+              {venuePositions.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -143,16 +180,13 @@ export default async function PortfolioPage({
                       </tr>
                     </thead>
                     <tbody>
-                      {current.portfolio.positions.map((pos) => (
+                      {venuePositions.map((pos) => (
                         <tr
                           key={`${pos.symbol.venue}-${pos.symbol.base}-${pos.symbol.quote}`}
                           className="border-border border-t"
                         >
                           <td className="py-1.5 pr-4">
                             {pos.symbol.base}/{pos.symbol.quote}
-                            <span className="text-muted-foreground ml-1 text-xs">
-                              {pos.symbol.venue}
-                            </span>
                           </td>
                           <td className="py-1.5 pr-4 text-right font-mono">
                             {formatNumber(pos.quantity, 8)}
@@ -166,7 +200,9 @@ export default async function PortfolioPage({
                   </table>
                 </div>
               ) : (
-                <p className="text-muted-foreground text-sm">No open positions.</p>
+                <p className="text-muted-foreground text-sm">
+                  No open positions on {activeVenue}.
+                </p>
               )}
             </Card>
           </div>
