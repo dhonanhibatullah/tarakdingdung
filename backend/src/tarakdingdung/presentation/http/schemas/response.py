@@ -168,3 +168,203 @@ class PageResponse(BaseModel):
 class PageDataResponse(BaseModel, Generic[T]):
     data: list[T]
     page: PageResponse
+
+
+# ---- Trading ---------------------------------------------------------------
+
+class SymbolResponse(BaseModel):
+    venue: str
+    base: str
+    quote: str
+
+
+def symbol_response(symbol) -> SymbolResponse:
+    return SymbolResponse(venue=str(symbol.venue), base=symbol.base,
+                          quote=symbol.quote)
+
+
+class StrategyResponse(AuditResponse):
+    id: str
+    name: str
+    description: str
+    kind: str
+    mode: str
+    universe: list[SymbolResponse]
+    parameters: dict
+    is_enabled: bool
+    preferences: dict
+
+
+def strategy_response(config) -> StrategyResponse:
+    return StrategyResponse(
+        id=str(config.id), name=config.name, description=config.description,
+        kind=config.kind, mode=str(config.mode),
+        universe=[symbol_response(s) for s in config.universe],
+        parameters=config.parameters, is_enabled=config.is_enabled,
+        preferences=normalize_preferences(config.preferences), **_audit(config))
+
+
+def strategies_response(items) -> list[StrategyResponse]:
+    return [strategy_response(c) for c in items]
+
+
+class PerformanceResponse(BaseModel):
+    total_return: float
+    sharpe: float
+    sortino: float
+    max_drawdown: float
+    turnover: float
+    gross_return: float
+    net_return: float
+    cost_drag: float
+    trade_count: int
+
+
+def performance_response(report) -> PerformanceResponse:
+    return PerformanceResponse(
+        total_return=report.total_return, sharpe=report.sharpe,
+        sortino=report.sortino, max_drawdown=report.max_drawdown,
+        turnover=report.turnover, gross_return=report.gross_return,
+        net_return=report.net_return, cost_drag=report.cost_drag,
+        trade_count=report.trade_count)
+
+
+class BacktestRunResponse(BaseModel):
+    id: str
+    strategy_id: str
+    window_start: int
+    window_end: int
+    initial_equity: str
+    report: PerformanceResponse
+    created_at: datetime
+
+
+def backtest_run_response(run) -> BacktestRunResponse:
+    return BacktestRunResponse(
+        id=str(run.id), strategy_id=str(run.strategy_id),
+        window_start=run.window.start, window_end=run.window.end,
+        initial_equity=str(run.initial_equity),
+        report=performance_response(run.report), created_at=run.created_at)
+
+
+def backtest_runs_response(items) -> list[BacktestRunResponse]:
+    return [backtest_run_response(r) for r in items]
+
+
+class OverfittingResponse(BaseModel):
+    probability: float
+    threshold: float
+    passed: bool
+
+
+class ValidationRunResponse(BaseModel):
+    id: str
+    strategy_id: str
+    window_start: int
+    window_end: int
+    trials: int
+    overfitting: OverfittingResponse
+    created_at: datetime
+
+
+def validation_run_response(run) -> ValidationRunResponse:
+    return ValidationRunResponse(
+        id=str(run.id), strategy_id=str(run.strategy_id),
+        window_start=run.window.start, window_end=run.window.end,
+        trials=len(run.trials),
+        overfitting=OverfittingResponse(
+            probability=run.overfitting.probability,
+            threshold=run.overfitting.threshold, passed=run.overfitting.passed),
+        created_at=run.created_at)
+
+
+class PositionResponse(BaseModel):
+    symbol: SymbolResponse
+    quantity: str
+    average_price: str
+
+
+class PortfolioResponse(BaseModel):
+    timestamp: int
+    cash: dict[str, str]
+    positions: list[PositionResponse]
+    equity: str
+
+
+class RiskStateResponse(BaseModel):
+    timestamp: int
+    equity_peak: str
+    daily_pnl: str
+    realized_volatility: float
+    halted: bool
+
+
+class CurrentPortfolioResponse(BaseModel):
+    portfolio: PortfolioResponse
+    risk_state: RiskStateResponse
+
+
+def portfolio_response(portfolio) -> PortfolioResponse:
+    return PortfolioResponse(
+        timestamp=portfolio.timestamp,
+        cash={str(venue): str(amount) for venue, amount in portfolio.cash.items()},
+        positions=[PositionResponse(symbol=symbol_response(s),
+                                    quantity=str(p.quantity),
+                                    average_price=str(p.average_price))
+                   for s, p in portfolio.positions.items()],
+        equity=str(portfolio.equity))
+
+
+def current_portfolio_response(result) -> CurrentPortfolioResponse:
+    state = result.risk_state
+    return CurrentPortfolioResponse(
+        portfolio=portfolio_response(result.portfolio),
+        risk_state=RiskStateResponse(
+            timestamp=state.timestamp, equity_peak=str(state.equity_peak),
+            daily_pnl=str(state.daily_pnl),
+            realized_volatility=state.realized_volatility, halted=state.halted))
+
+
+class EquityPointResponse(BaseModel):
+    timestamp: int
+    equity: str
+
+
+class EquityCurveResponse(BaseModel):
+    points: list[EquityPointResponse]
+
+
+class CoverageResponse(BaseModel):
+    symbol: SymbolResponse
+    interval: str
+    expected: int
+    present: int
+    completeness: float
+    gaps: list[dict]
+
+
+def coverage_response(coverage) -> CoverageResponse:
+    return CoverageResponse(
+        symbol=symbol_response(coverage.symbol), interval=coverage.interval,
+        expected=coverage.expected, present=coverage.present,
+        completeness=coverage.completeness,
+        gaps=[{"start": g.start, "end": g.end} for g in coverage.gaps])
+
+
+class CycleResponse(BaseModel):
+    timestamp: int
+    strategy_id: str
+    decision: str
+    halted_by: str | None = None
+    orders: int
+    rejected: int
+    reconciled: int
+
+
+def cycle_response(result) -> CycleResponse:
+    return CycleResponse(
+        timestamp=result.timestamp, strategy_id=str(result.strategy_id),
+        decision=str(result.decision), halted_by=result.halted_by,
+        orders=len(result.plan.orders) if result.plan else 0,
+        rejected=len(result.plan.rejected) if result.plan else 0,
+        reconciled=result.reconciled)

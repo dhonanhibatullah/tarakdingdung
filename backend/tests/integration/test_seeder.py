@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 from sqlalchemy import text
 
@@ -32,8 +35,11 @@ async def test_seed_is_idempotent_and_links_permissions(migrated_url):
                 "JOIN roles r ON r.id = rp.role_id WHERE r.name = 'super'"))
             default_role = await s.scalar(text(
                 "SELECT name FROM roles WHERE is_default = TRUE AND deleted_at IS NULL"))
-        assert perms == 20 and roles == 3 and users == 3
-        assert super_links == 20
+        # Derived from the seed files rather than hardcoded: adding a
+        # permission is a routine change and should not break this test.
+        assert perms == _seeded_count("permission.json")
+        assert roles == _seeded_count("role.json") and users == 3
+        assert super_links == len(_seeded_role("super")["permissions"])
         assert default_role == "user"
     finally:
         async with driver.database.session() as s:
@@ -62,3 +68,17 @@ async def test_seed_hashes_password_from_settings(migrated_url):
             await s.execute(text("DELETE FROM permissions"))
             await s.commit()
         await driver.database.dispose()
+
+
+
+def _seed_dir() -> Path:
+    return Path(__file__).resolve().parents[2] / "database" / "seeder"
+
+
+def _seeded_count(filename: str) -> int:
+    return len(json.loads((_seed_dir() / filename).read_text()))
+
+
+def _seeded_role(name: str) -> dict:
+    roles = json.loads((_seed_dir() / "role.json").read_text())
+    return next(role for role in roles if role["name"] == name)

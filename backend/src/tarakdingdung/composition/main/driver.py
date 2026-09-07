@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+import httpx
+
 from tarakdingdung.config.settings import Settings
 from tarakdingdung.domain.contracts.logger.leveled import LeveledLogger
 from tarakdingdung.domain.models.logger import LoggerLevel
@@ -12,6 +14,7 @@ from tarakdingdung.infrastructure.repository.database.session import Database
 class Driver:
     database: Database
     logger: LeveledLogger
+    http: httpx.AsyncClient
 
 
 def build_driver(settings: Settings) -> Driver:
@@ -24,4 +27,5 @@ def build_driver(settings: Settings) -> Driver:
         JsonLeveledLogging(level) if settings.logger_format == "json"
         else BasicLeveledLogging(level)
     )
-    return Driver(database=database, logger=logger)
+    return Driver(database=database, logger=logger,
+                  http=httpx.AsyncClient(timeout=settings.exchange_timeout_seconds))

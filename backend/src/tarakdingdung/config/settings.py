@@ -48,6 +48,19 @@ class Settings(BaseSettings):
     indodax_v2_api_key: str = "changemeindodaxv2apikey"
     indodax_v2_secret_key: str = "changemeindodaxv2secretkey"
 
+    exchange_timeout_seconds: float = 15.0
+
+    # Cron cadences. The collector runs faster than the engine so a cycle
+    # always decides on data it did not have to wait for.
+    cron_enabled: bool = False
+    cron_collect_seconds: int = 300
+    cron_portfolio_seconds: int = 300
+    cron_engine_seconds: int = 3600
+    cron_interval: str = "1h"
+    # A snapshot older than this is refused rather than sized against: a stale
+    # price looks valid and would place a real order at a dead level.
+    cron_max_snapshot_age_seconds: int = 7200
+
     @field_validator("http_cors_allowed_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

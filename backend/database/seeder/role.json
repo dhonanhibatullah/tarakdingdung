@@ -4,12 +4,35 @@
     "description": "Full RBAC control: manage permissions, roles, assignments, and users.",
     "is_default": false,
     "permissions": [
-      "profile:get", "profile:set", "profile_security:set",
-      "permission:get", "permission:add", "permission:set", "permission:remove",
-      "role:get", "role:add", "role:set", "role:remove",
-      "role_permission:get", "role_permission:add", "role_permission:remove",
-      "user:get", "user:add", "user:set", "user:remove",
-      "user_permission:get", "user_password:set"
+      "profile:get",
+      "profile:set",
+      "profile_security:set",
+      "permission:get",
+      "permission:add",
+      "permission:set",
+      "permission:remove",
+      "role:get",
+      "role:add",
+      "role:set",
+      "role:remove",
+      "role_permission:get",
+      "role_permission:add",
+      "role_permission:remove",
+      "user:get",
+      "user:add",
+      "user:set",
+      "user:remove",
+      "user_permission:get",
+      "user_password:set",
+      "strategy:get",
+      "strategy:add",
+      "strategy:set",
+      "strategy:remove",
+      "market_data:get",
+      "backtest:get",
+      "backtest:add",
+      "portfolio:get",
+      "engine:run"
     ]
   },
   {
@@ -17,15 +40,31 @@
     "description": "Manage users, but not the permission/role system itself.",
     "is_default": false,
     "permissions": [
-      "profile:get", "profile:set", "profile_security:set",
-      "user:get", "user:add", "user:set", "user:remove",
-      "user_permission:get", "user_password:set"
+      "profile:get",
+      "profile:set",
+      "profile_security:set",
+      "user:get",
+      "user:add",
+      "user:set",
+      "user:remove",
+      "user_permission:get",
+      "user_password:set",
+      "strategy:get",
+      "market_data:get",
+      "backtest:get",
+      "backtest:add",
+      "portfolio:get",
+      "engine:run"
     ]
   },
   {
     "name": "user",
     "description": "Default role: self-service profile management only.",
     "is_default": true,
-    "permissions": ["profile:get", "profile:set", "profile_security:set"]
+    "permissions": [
+      "profile:get",
+      "profile:set",
+      "profile_security:set"
+    ]
   }
 ]

@@ -14,10 +14,23 @@ _HEADERS = ["Accept", "Authorization", "Content-Type", "Origin", "X-Requested-Wi
 
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
-    yield
-    driver = getattr(app.state, "driver", None)
-    if driver is not None:
-        await driver.database.dispose()
+    """Start whatever background work the app owns, then release its drivers.
+
+    Startup hooks are registered on ``app.state.on_startup`` by the composition
+    root rather than imported here, so the presentation layer does not need to
+    know that a cron exists.
+    """
+    startup = getattr(app.state, "on_startup", None)
+    shutdown = await startup() if startup is not None else None
+    try:
+        yield
+    finally:
+        if shutdown is not None:
+            await shutdown()
+        driver = getattr(app.state, "driver", None)
+        if driver is not None:
+            await driver.database.dispose()
+            await driver.http.aclose()
 
 
 def build_app(container: Container, settings: Settings) -> FastAPI:

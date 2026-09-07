@@ -1,22 +1,118 @@
 [
-  { "name": "profile:get", "description": "View own profile." },
-  { "name": "profile:set", "description": "Update own profile." },
-  { "name": "profile_security:set", "description": "Change own password." },
-  { "name": "permission:get", "description": "View permissions." },
-  { "name": "permission:add", "description": "Create permissions." },
-  { "name": "permission:set", "description": "Update permissions." },
-  { "name": "permission:remove", "description": "Delete permissions." },
-  { "name": "role:get", "description": "View roles." },
-  { "name": "role:add", "description": "Create roles." },
-  { "name": "role:set", "description": "Update roles, including setting the default role." },
-  { "name": "role:remove", "description": "Delete roles." },
-  { "name": "role_permission:get", "description": "View role-permission assignments." },
-  { "name": "role_permission:add", "description": "Assign a permission to a role." },
-  { "name": "role_permission:remove", "description": "Remove a permission from a role." },
-  { "name": "user:get", "description": "View users." },
-  { "name": "user:add", "description": "Create users." },
-  { "name": "user:set", "description": "Update users." },
-  { "name": "user:remove", "description": "Delete users." },
-  { "name": "user_permission:get", "description": "View a user's effective permissions." },
-  { "name": "user_password:set", "description": "Reset a user's password." }
+  {
+    "name": "profile:get",
+    "description": "View own profile."
+  },
+  {
+    "name": "profile:set",
+    "description": "Update own profile."
+  },
+  {
+    "name": "profile_security:set",
+    "description": "Change own password."
+  },
+  {
+    "name": "permission:get",
+    "description": "View permissions."
+  },
+  {
+    "name": "permission:add",
+    "description": "Create permissions."
+  },
+  {
+    "name": "permission:set",
+    "description": "Update permissions."
+  },
+  {
+    "name": "permission:remove",
+    "description": "Delete permissions."
+  },
+  {
+    "name": "role:get",
+    "description": "View roles."
+  },
+  {
+    "name": "role:add",
+    "description": "Create roles."
+  },
+  {
+    "name": "role:set",
+    "description": "Update roles, including setting the default role."
+  },
+  {
+    "name": "role:remove",
+    "description": "Delete roles."
+  },
+  {
+    "name": "role_permission:get",
+    "description": "View role-permission assignments."
+  },
+  {
+    "name": "role_permission:add",
+    "description": "Assign a permission to a role."
+  },
+  {
+    "name": "role_permission:remove",
+    "description": "Remove a permission from a role."
+  },
+  {
+    "name": "user:get",
+    "description": "View users."
+  },
+  {
+    "name": "user:add",
+    "description": "Create users."
+  },
+  {
+    "name": "user:set",
+    "description": "Update users."
+  },
+  {
+    "name": "user:remove",
+    "description": "Delete users."
+  },
+  {
+    "name": "user_permission:get",
+    "description": "View a user's effective permissions."
+  },
+  {
+    "name": "user_password:set",
+    "description": "Reset a user's password."
+  },
+  {
+    "name": "strategy:get",
+    "description": "View trading strategies."
+  },
+  {
+    "name": "strategy:add",
+    "description": "Create trading strategies."
+  },
+  {
+    "name": "strategy:set",
+    "description": "Update trading strategies, including enabling and disabling them."
+  },
+  {
+    "name": "strategy:remove",
+    "description": "Delete trading strategies."
+  },
+  {
+    "name": "market_data:get",
+    "description": "View stored market data and its coverage."
+  },
+  {
+    "name": "backtest:get",
+    "description": "View backtest and validation runs."
+  },
+  {
+    "name": "backtest:add",
+    "description": "Run backtests and parameter validations."
+  },
+  {
+    "name": "portfolio:get",
+    "description": "View the portfolio and its equity curve."
+  },
+  {
+    "name": "engine:run",
+    "description": "Dry-run the trading engine to see what it would do."
+  }
 ]
