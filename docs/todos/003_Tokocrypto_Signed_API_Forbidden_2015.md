@@ -1,7 +1,7 @@
 # 003 — Tokocrypto signed `/api/v3` calls rejected with `-2015`
 
 - **Severity:** high
-- **Status:** **done (code side) — Path B applied, commit `<pending>`.** Operator
+- **Status:** **done (code side) — Path B applied, commit `d9ec808`.** Operator
   should still regenerate the API key withdraw-disabled (see security note).
 - **Detected:** 2026-09-07, signed probe + in-container portfolio sync
 - **Area:** operational / credentials + composition wiring
