@@ -125,6 +125,12 @@ class CandleORM(Base):
 
 class OrderBookORM(Base):
     __tablename__ = "order_books"
+    # One row per symbol: only the latest book is ever read (``read_book`` takes
+    # the newest ``captured_at``), and the bid/ask JSON blobs are the biggest
+    # per-row cost in the schema. The collector upserts on this key.
+    __table_args__ = (
+        UniqueConstraint("venue", "base", "quote", name="uq_order_books_symbol"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     venue: Mapped[str] = mapped_column(Text)
@@ -137,6 +143,12 @@ class OrderBookORM(Base):
 
 class PriceORM(Base):
     __tablename__ = "prices"
+    # One row per symbol, upserted by the collector: only the latest price is
+    # read (within a freshness bound), so historical rows are pure growth. The
+    # candle series is the price history.
+    __table_args__ = (
+        UniqueConstraint("venue", "base", "quote", name="uq_prices_symbol"),
+    )
     id: Mapped[uuid.UUID] = mapped_column(
         PgUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     venue: Mapped[str] = mapped_column(Text)

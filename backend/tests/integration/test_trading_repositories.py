@@ -125,6 +125,30 @@ async def test_a_stale_price_is_omitted_by_the_query_not_by_python(market):
 
 
 @pytest.mark.asyncio
+async def test_repeated_price_writes_keep_one_row_and_never_regress(market, db):
+    await market.write_price(symbol=BTC, timestamp=TS, price=Decimal("100"))
+    await market.write_price(symbol=BTC, timestamp=TS + 5_000, price=Decimal("110"))
+    await market.write_price(symbol=BTC, timestamp=TS - 5_000, price=Decimal("50"))
+    async with db.session() as s:
+        rows = (await s.execute(sa.text(
+            "SELECT captured_at, price FROM prices WHERE base = 'BTC'"))).all()
+    assert len(rows) == 1
+    assert rows[0].captured_at == TS + 5_000
+    assert rows[0].price == Decimal("110")
+
+
+@pytest.mark.asyncio
+async def test_repeated_book_writes_keep_one_row(market, db):
+    for offset in (0, 1_000, 2_000):
+        await market.write_book(OrderBook(symbol=BTC, timestamp=TS + offset,
+                                          bids=(), asks=()))
+    async with db.session() as s:
+        count = await s.scalar(sa.text(
+            "SELECT count(*) FROM order_books WHERE base = 'BTC'"))
+    assert count == 1
+
+
+@pytest.mark.asyncio
 async def test_a_future_price_is_never_returned(market):
     await market.write_price(symbol=BTC, timestamp=TS + 10_000, price=Decimal("90"))
     assert await market.read_prices(symbols=(BTC,), as_of=TS, max_age=100_000) == {}
@@ -210,6 +234,28 @@ async def test_complete_coverage_reports_no_gaps(market):
         symbol=BTC, interval="1h", window=TimeRange(start=TS, end=TS + HOUR * 4))
     assert coverage.gaps == ()
     assert coverage.completeness == 1.0
+
+
+@pytest.mark.asyncio
+async def test_a_window_reaching_past_the_last_candle_reports_a_trailing_gap(market):
+    # Data covers TS..TS+2h; the window asks for TS..TS+6h.
+    await market.write_candles(symbol=BTC, interval="1h", candles=tuple(
+        candle(TS + HOUR * i) for i in range(3)))
+    coverage = await market.read_coverage(
+        symbol=BTC, interval="1h", window=TimeRange(start=TS, end=TS + HOUR * 6))
+    assert coverage.present == 3 and coverage.expected == 6
+    assert coverage.completeness == 0.5
+    # the shortfall is a real, inspectable gap, not a silent completeness < 1
+    assert coverage.gaps == (TimeRange(start=TS + HOUR * 3, end=TS + HOUR * 6),)
+
+
+@pytest.mark.asyncio
+async def test_a_window_starting_before_the_first_candle_reports_a_leading_gap(market):
+    await market.write_candles(symbol=BTC, interval="1h", candles=tuple(
+        candle(TS + HOUR * i) for i in range(3, 6)))
+    coverage = await market.read_coverage(
+        symbol=BTC, interval="1h", window=TimeRange(start=TS, end=TS + HOUR * 6))
+    assert coverage.gaps == (TimeRange(start=TS, end=TS + HOUR * 3),)
 
 
 # --- strategy ---------------------------------------------------------------

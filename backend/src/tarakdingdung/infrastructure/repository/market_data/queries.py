@@ -47,14 +47,34 @@ def build_upsert_candles(*, symbol: Symbol, interval: str,
 
 
 def build_insert_book(book: OrderBook):
-    return pg_insert(B).values(
+    """Upsert the single row for this symbol — only the latest book is read.
+
+    The ``where`` keeps the newest: an out-of-order write (an older book
+    arriving after a newer one) is dropped rather than regressing the row.
+    """
+    statement = pg_insert(B).values(
         **symbol_columns(book.symbol), captured_at=book.timestamp,
         bids=levels_to_json(book.bids), asks=levels_to_json(book.asks))
+    return statement.on_conflict_do_update(
+        constraint="uq_order_books_symbol",
+        set_={"captured_at": statement.excluded.captured_at,
+              "bids": statement.excluded.bids, "asks": statement.excluded.asks},
+        where=B.captured_at <= statement.excluded.captured_at)
 
 
 def build_insert_price(*, symbol: Symbol, timestamp: int, price):
-    return pg_insert(P).values(**symbol_columns(symbol), captured_at=timestamp,
-                               price=price)
+    """Upsert the single row for this symbol — only the latest price is read.
+
+    The ``where`` keeps the newest, so an out-of-order write cannot regress the
+    stored price.
+    """
+    statement = pg_insert(P).values(
+        **symbol_columns(symbol), captured_at=timestamp, price=price)
+    return statement.on_conflict_do_update(
+        constraint="uq_prices_symbol",
+        set_={"captured_at": statement.excluded.captured_at,
+              "price": statement.excluded.price},
+        where=P.captured_at <= statement.excluded.captured_at)
 
 
 def build_read_candles(*, symbol: Symbol, interval: str, window: TimeRange,

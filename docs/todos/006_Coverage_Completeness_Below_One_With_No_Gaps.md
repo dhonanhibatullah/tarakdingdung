@@ -1,9 +1,35 @@
 # 006 — `GET /trading/coverage` reports `completeness < 1.0` with an empty `gaps` list
 
 - **Severity:** low
-- **Status:** open
+- **Status:** done (fixed 2026-09-07 — commit `<pending>`)
 - **Detected:** 2026-09-07
 - **Area:** `infrastructure/repository/market_data/repository.py` (`read_coverage`, `_gaps`, `_step`)
+
+## Resolution — `_gaps` now reports the edges too
+
+`SqlAlchemyMarketDataRepository._gaps` takes the `window` and synthesises:
+
+- a **leading** gap `TimeRange(window.start, first_stamp)` when the window
+  starts a step or more before the first stored candle,
+- a **trailing** gap `TimeRange(last_stamp + step, window.end)` when the window
+  ends a step or more after the last stored candle,
+
+alongside the interior holes it already found. An empty stamp list now yields
+one gap covering the whole window. So `completeness < 1` always has a
+corresponding, inspectable gap — no more silent shortfall.
+
+**Verified in Docker:** a window ending ~10h past the newest candle returned
+`completeness: 0.61` **with** `gaps: [{start: <newest+1h>, end: <window end>}]`
+(previously: `0.72`, `gaps: []`).
+
+Tests: `test_a_window_reaching_past_the_last_candle_reports_a_trailing_gap`,
+`test_a_window_starting_before_the_first_candle_reports_a_leading_gap`
+(`test_trading_repositories.py`); the existing interior-hole and
+complete-coverage tests are unchanged and still pass.
+
+---
+
+## Original analysis
 
 ## Symptom
 

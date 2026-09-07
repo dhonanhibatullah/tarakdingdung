@@ -5,6 +5,11 @@ name: tarakdingdung
 # compose change.
 
 x-backend: &backend
+  # One explicit image name shared by every service. Without it compose builds
+  # a separate image per service from the identical build config, so rebuilding
+  # one (`docker compose build backend`) leaves the others on stale code — a
+  # schema/code skew between the app and the seeder waiting to happen.
+  image: tarakdingdung-backend:latest
   build:
     context: .
     dockerfile: Dockerfile

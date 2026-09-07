@@ -12,6 +12,7 @@ from tarakdingdung.domain.contracts.utility.single_flight import SingleFlight
 from tarakdingdung.domain.models.algorithm import CyclePlan
 from tarakdingdung.domain.models.error import DomainError, ErrorType
 from tarakdingdung.domain.models.execution import ExecutionResult, OrderState
+from tarakdingdung.domain.models.performance import Fill
 from tarakdingdung.domain.models.strategy import StrategyConfig, TradingMode
 from tarakdingdung.domain.usecases.trading.engine import (
     CycleDecision, RunCycleRequest, RunCycleResult, TradingEngine,
@@ -129,7 +130,7 @@ class TradingEngineUsecase(TradingEngine):
         await self._journal.write_execution(
             strategy_id=config.id, timestamp=plan.timestamp, result=execution)
         await self._record_states(execution)
-        await self._portfolios.append_fills(execution.fills)
+        await self._append_fills(config, execution.fills)
 
         if not execution.is_complete:
             await self._logger.error(
@@ -170,9 +171,31 @@ class TradingEngineUsecase(TradingEngine):
                                         {"err": err, "client_order_id": order.client_order_id})
                 continue
             await self._record_states(found)
-            await self._portfolios.append_fills(found.fills)
+            await self._append_fills(config, found.fills)
             resolved += 1
         return resolved
+
+    async def _append_fills(self, config: StrategyConfig,
+                            fills: tuple[Fill, ...]) -> None:
+        """Record fills against the real portfolio ledger — live strategies only.
+
+        A PAPER strategy stepped by the engine exercises the whole live cycle
+        (reconcile, write-ahead journal, submit, record states) against a
+        simulated executor, but its fills are fictional. The shared ``fills`` /
+        portfolio / equity tables describe the real account — the portfolio
+        sync rebuilds them from venue balances — so a paper fill written there
+        is noise that a live strategy's reporting would then commingle with.
+        Paper P&L is the backtest's job; the per-strategy order journal still
+        records what the paper strategy did.
+        """
+        if not fills:
+            return
+        if config.mode is TradingMode.PAPER:
+            await self._logger.debug(
+                f"{self._TAG}/RunCycle", "paper fills not written to the shared ledger",
+                {"strategy_id": config.id, "count": len(fills)})
+            return
+        await self._portfolios.append_fills(fills)
 
     async def _halt(self, config: StrategyConfig, executor: Executor,
                     plan: CyclePlan) -> None:

@@ -106,7 +106,7 @@ class SqlAlchemyMarketDataRepository(MarketDataRepository):
         expected = max(1, window.duration // step) if step else 1
         return Coverage(symbol=symbol, interval=interval, window=window,
                         expected=expected, present=len(stamps),
-                        gaps=self._gaps(list(stamps), step))
+                        gaps=self._gaps(list(stamps), step, window))
 
     async def write_rules(self, rules: Mapping[Symbol, SymbolRules]) -> None:
         if not rules:
@@ -151,11 +151,27 @@ class SqlAlchemyMarketDataRepository(MarketDataRepository):
         return min(b - a for a, b in zip(stamps, stamps[1:]) if b > a)
 
     @staticmethod
-    def _gaps(stamps: list[int], step: int) -> tuple[TimeRange, ...]:
-        if step <= 0 or len(stamps) < 2:
+    def _gaps(stamps: list[int], step: int,
+              window: TimeRange) -> tuple[TimeRange, ...]:
+        """Every stretch of the window not covered by a candle.
+
+        Interior holes *and* the edges: a window that starts before the first
+        stored candle or ends after the last one is short by that much, and a
+        caller checking coverage before a backtest needs to see it rather than
+        a bare ``completeness < 1`` with an empty list.
+        """
+        if step <= 0:
             return ()
-        found = []
+        if not stamps:
+            return (TimeRange(start=window.start, end=window.end),)
+
+        found: list[TimeRange] = []
+        if stamps[0] - window.start >= step:
+            found.append(TimeRange(start=window.start, end=stamps[0]))
         for earlier, later in zip(stamps, stamps[1:]):
             if later - earlier > step:
                 found.append(TimeRange(start=earlier + step, end=later))
+        tail_start = stamps[-1] + step
+        if window.end - tail_start >= step:
+            found.append(TimeRange(start=tail_start, end=window.end))
         return tuple(found)

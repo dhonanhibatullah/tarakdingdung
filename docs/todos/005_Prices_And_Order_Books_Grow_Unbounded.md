@@ -1,9 +1,38 @@
 # 005 — `prices` and `order_books` grow unbounded (INSERT, not upsert; no retention)
 
 - **Severity:** low
-- **Status:** open
+- **Status:** done (fixed 2026-09-07 — commit `<pending>`)
 - **Detected:** 2026-09-07
 - **Area:** `application/trading/collection/`, `infrastructure/repository/market_data/queries.py`
+
+## Resolution — one row per symbol, upserted
+
+Both tables are read latest-only (a freshness-bounded price, the single newest
+book), and the candle series is the real price history, so historical rows
+were pure growth.
+
+- **Migration `0008_dedup_market_snapshots`** — dedups each table to one row
+  per `(venue, base, quote)` (keeping the newest `captured_at`, id as
+  tiebreak), adds `uq_prices_symbol` / `uq_order_books_symbol` unique
+  constraints, and drops the now-redundant 4-column lookup indexes.
+- **`build_insert_price` / `build_insert_book`** — now
+  `INSERT ... ON CONFLICT (venue, base, quote) DO UPDATE`, with a
+  `WHERE captured_at <= EXCLUDED.captured_at` guard so an out-of-order write
+  can never regress the stored value.
+- ORM: `PriceORM` / `OrderBookORM` gain the matching `UniqueConstraint`.
+
+**Verified in Docker:** two collect runs for two symbols → `prices` and
+`order_books` stayed at **2 rows each** (one per symbol), where before every
+run appended.
+
+Tests: `test_prices_and_order_books_hold_one_row_per_symbol`
+(`test_orm_metadata.py`);
+`test_repeated_price_writes_keep_one_row_and_never_regress`,
+`test_repeated_book_writes_keep_one_row` (`test_trading_repositories.py`).
+
+---
+
+## Original analysis
 
 ## Symptom
 

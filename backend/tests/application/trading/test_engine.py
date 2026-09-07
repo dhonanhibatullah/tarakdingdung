@@ -6,7 +6,8 @@ import pytest
 from tarakdingdung.application.trading.engine.usecase import TradingEngineUsecase
 from tarakdingdung.application.trading.history.usecase import MarketDataHistoryUsecase
 from tarakdingdung.domain.models.error import DomainError, ErrorType
-from tarakdingdung.domain.models.execution import OrderState
+from tarakdingdung.domain.models.execution import ExecutionResult, OrderState
+from tarakdingdung.domain.models.performance import Fill
 from tarakdingdung.domain.models.strategy import TradingMode
 from tarakdingdung.domain.usecases.trading.engine import CycleDecision, RunCycleRequest
 from tests.application.trading.conftest import (
@@ -118,6 +119,43 @@ async def test_reconcile_passes_the_symbol_to_the_executor():
     ctx.journal.unreconciled = [order()]
     await ctx.run()
     assert ctx.executor.looked_up == [("tdd0000000000001", BTC)]
+
+
+# --- fills and the shared ledger ------------------------------------------
+
+class _FillingExecutor(FakeExecutor):
+    """Accepts every order and reports a fill for it."""
+
+    async def submit(self, orders) -> ExecutionResult:
+        base = await super().submit(orders)
+        fills = tuple(
+            Fill(symbol=o.symbol, side=o.side, quantity=o.quantity,
+                 price=o.price or Decimal("1"), fee=Decimal("0"), timestamp=0)
+            for o in orders)
+        return ExecutionResult(accepted=base.accepted, rejected=base.rejected,
+                               unconfirmed=base.unconfirmed, fills=fills)
+
+
+async def test_paper_fills_stay_out_of_the_shared_ledger():
+    # A paper strategy on the engine exercises the whole cycle, but its fills
+    # are fictional: the shared fills/portfolio tables track the real account.
+    ctx = Ctx()  # PAPER by default
+    ctx.executor = _FillingExecutor(journal=ctx.journal)
+    ctx.engine._executors = {TradingMode.PAPER: ctx.executor}
+    result = await ctx.run()
+    assert result.decision is CycleDecision.TRADED
+    assert ctx.portfolios.fills == []
+    # the per-strategy journal still records what it did
+    assert ctx.journal.states["tdd0000000000001"] is OrderState.ACCEPTED
+
+
+async def test_live_fills_are_recorded_to_the_shared_ledger():
+    ctx = Ctx(strategy=make_strategy(universe=(BTC,), mode=TradingMode.LIVE))
+    ctx.executor = _FillingExecutor(journal=ctx.journal)
+    ctx.engine._executors = {TradingMode.LIVE: ctx.executor}
+    result = await ctx.run()
+    assert result.decision is CycleDecision.TRADED
+    assert len(ctx.portfolios.fills) == 1
 
 
 # --- halting ----------------------------------------------------------------

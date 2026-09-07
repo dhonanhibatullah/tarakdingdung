@@ -1,9 +1,32 @@
 # 007 — Backtest persists an all-zero report when it ran 0 cycles
 
 - **Severity:** low (becomes moot once `001` is fixed, but worth a guard regardless)
-- **Status:** open
+- **Status:** done (fixed 2026-09-07, with `001` — commit `4caf67c`)
 - **Detected:** 2026-09-07
 - **Area:** `application/trading/backtest/usecase.py`
+
+## Resolution
+
+`BacktestingUsecase.run` now raises after the loop when `cycles == 0`:
+
+```python
+if cycles == 0:
+    err = DomainError(
+        "backtest produced no evaluable cycles: candle coverage passed "
+        "the gate but no usable snapshot could be built over the window",
+        ErrorType.VALIDATION)
+    ...
+    raise err
+```
+
+Nothing is persisted. The message is distinct from the `_require_coverage`
+gate's, so the two failure modes are told apart. Covered by
+`test_raises_when_the_window_yields_no_evaluable_cycle`.
+
+The optional "far below expected step count" flag was **not** added — after
+`001` a covered window replays fully, and a partial replay from a genuine
+mid-window gap is already surfaced by `min_completeness` and (now) by the
+trailing gaps from `006`.
 
 ## Symptom
 

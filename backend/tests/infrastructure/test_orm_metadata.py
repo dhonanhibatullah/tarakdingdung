@@ -1,8 +1,8 @@
 from decimal import Decimal
 
 from tarakdingdung.infrastructure.repository.database.orm import (
-    Base, CandleORM, FillORM, PermissionORM, PlannedOrderORM, RoleORM,
-    RolePermissionORM, StrategyORM, UserORM,
+    Base, CandleORM, FillORM, OrderBookORM, PermissionORM, PlannedOrderORM,
+    PriceORM, RoleORM, RolePermissionORM, StrategyORM, UserORM,
 )
 
 AUTH_TABLES = {"permissions", "roles", "role_permission", "users"}
@@ -58,6 +58,15 @@ def test_candles_are_unique_on_their_natural_key():
     assert any(set(uc.columns.keys()) == {"venue", "base", "quote", "interval", "open_time"}
                for uc in CandleORM.__table__.constraints
                if uc.__class__.__name__ == "UniqueConstraint")
+
+
+def test_prices_and_order_books_hold_one_row_per_symbol():
+    # Both are read latest-only, so the collector upserts on the symbol key
+    # rather than appending a row every poll.
+    for table in (PriceORM, OrderBookORM):
+        assert any(set(uc.columns.keys()) == {"venue", "base", "quote"}
+                   for uc in table.__table__.constraints
+                   if uc.__class__.__name__ == "UniqueConstraint"), table.__tablename__
 
 
 def test_planned_orders_are_unique_on_client_order_id():

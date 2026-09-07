@@ -1,9 +1,47 @@
 # 004 — PAPER trading through the cron engine is not a real simulation
 
 - **Severity:** medium
-- **Status:** open
+- **Status:** done (fixed 2026-09-07 — commit `<pending>`)
 - **Detected:** 2026-09-07, one live engine cycle on a PAPER strategy
 - **Area:** `application/trading/engine/`, `application/trading/portfolio/`, `fills` schema
+
+## Resolution — option (b): the engine no longer writes paper fills to the shared ledger
+
+`TradingEngineUsecase` now routes fills through `_append_fills(config, fills)`,
+which **skips the shared `fills` / portfolio / equity tables for
+`TradingMode.PAPER`** (debug-logs the skip) and only calls
+`self._portfolios.append_fills(...)` for `LIVE`. Both call sites — `_submit`
+and `_reconcile` — go through it.
+
+Rationale: `fills` / `portfolio_snapshots` / `equity_points` describe the
+**real account** (the portfolio sync rebuilds them from venue balances), and
+`read_fills` is not consumed by any usecase today, so a paper fill written
+there was pure noise that a live strategy's reporting would later commingle
+with. Paper-on-the-engine still does its real job — exercising the whole live
+cycle (reconcile → write-ahead journal → submit → record states) against a
+simulated executor — and the **per-strategy `planned_orders` journal still
+records everything a paper strategy did**. Paper *P&L* is the backtest's job
+(now working — `001`).
+
+**Verified in Docker:** two PAPER engine cycles, each `decision=TRADED`,
+`orders=1` → `fills` table stayed at **0 rows**; `planned_orders` recorded
+both; `portfolio_snapshots` came only from the balance sync.
+
+Tests: `test_paper_fills_stay_out_of_the_shared_ledger`,
+`test_live_fills_are_recorded_to_the_shared_ledger` in `test_engine.py`.
+
+### Deliberately deferred: option (a), a real paper-portfolio sandbox
+
+Giving PAPER strategies their own portfolio state (seeded from a notional,
+advanced by paper fills only, never overwritten by the balance sync) plus
+`strategy_id` / `mode` columns on `fills` was **not** done — it is a larger
+product decision (schema change, new semantics) and the backtest already
+covers "how would this strategy have done". If a live-schedule paper P&L
+sandbox is wanted later, that is the shape it takes.
+
+---
+
+## Original analysis
 
 ## Symptom
 
