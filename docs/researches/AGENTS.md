@@ -11,16 +11,16 @@ editing, or citing anything here.
 
 ```
 docs/researches/
-├── AGENTS.md                     ← this file (the rules)
+├── AGENTS.md                      ← this file (the rules)
 ├── references/
-│   ├── 00_Contents_Overview.md   ← index of every reference file
-│   ├── 01_<Title>.md
-│   ├── 02_<Title>.md
+│   ├── 000_Contents_Overview.md   ← index of every reference file
+│   ├── 001_<Title>.md
+│   ├── 002_<Title>.md
 │   └── ...
 └── summaries/
-    ├── 00_Contents_Overview.md   ← index of every summary file
-    ├── 01_<Title>.md
-    ├── 02_<Title>.md
+    ├── 000_Contents_Overview.md   ← index of every summary file
+    ├── 001_<Title>.md
+    ├── 002_<Title>.md
     └── ...
 ```
 
@@ -38,24 +38,28 @@ Every non-trivial fact in a summary must trace back to at least one file in
 
 ## 2. File naming
 
-**`XX_The_Title.md`**
+**`XXX_The_Title.md`**
 
-- `XX` — a two-digit, zero-padded decimal counter: `01`, `02`, … `09`, `10`, …
-  `99`. It is unique and monotonically increasing **within its folder**
-  (`references/` and `summaries/` each have their own independent sequence).
-- `00` is reserved for `00_Contents_Overview.md` in both folders. Real content
-  starts at `01`.
+- `XXX` — a three-digit, zero-padded decimal counter: `001`, `002`, … `009`,
+  `010`, … `099`, `100`, … `999`. It is unique and monotonically increasing
+  **within its folder** (`references/` and `summaries/` each have their own
+  independent sequence).
+- `000` is reserved for `000_Contents_Overview.md` in both folders. Real content
+  starts at `001`.
 - `The_Title` — a short, human-readable title in `Title_Case_With_Underscores`.
   No spaces, no punctuation other than underscores. Keep it under ~60
   characters. Make it specific enough to recognise in a list
-  (`04_Kelly_Criterion_Position_Sizing.md`, not `04_Notes.md`).
-- **Numbers are permanent.** Once `07_...` exists and is referenced, that number
-  is burned. If you delete a file, leave its number retired — do **not**
+  (`004_Kelly_Criterion_Position_Sizing.md`, not `004_Notes.md`).
+- **Numbers are permanent.** Once `007_...` exists and is referenced, that
+  number is burned. If you delete a file, leave its number retired — do **not**
   renumber later files, because summaries cite references by number and
   renumbering silently breaks that backtracking. A retired number gets a
-  tombstone line in the folder's `00_Contents_Overview.md` (see §5).
-- To find the next number: take the highest `XX` currently listed in that
-  folder's `00_Contents_Overview.md` (including tombstones) and add one.
+  tombstone line in the folder's `000_Contents_Overview.md` (see §5).
+- Zero-pad width is fixed at three digits for ordering and consistency; it is
+  not part of the identity. `007` and a hypothetical future `0007` would be the
+  same number — do not restyle existing files to a new width.
+- To find the next number: take the highest `XXX` currently listed in that
+  folder's `000_Contents_Overview.md` (including tombstones) and add one.
 
 ---
 
@@ -67,7 +71,7 @@ it and so summaries can be audited against it.
 **When you add a reference:**
 
 1. Pick the next free number for `references/`.
-2. Create `references/XX_The_Title.md` with this shape:
+2. Create `references/XXX_The_Title.md` with this shape:
 
    ```markdown
    # <Title>
@@ -98,7 +102,7 @@ it and so summaries can be audited against it.
    figures dropped, etc. This is about fidelity of the capture, not analysis.>
    ```
 
-3. Add a one-line entry to `references/00_Contents_Overview.md` (see §5).
+3. Add a one-line entry to `references/000_Contents_Overview.md` (see §5).
 
 **Rules for `references/`:**
 
@@ -124,14 +128,14 @@ combining and reconciling multiple references.
 **When you add a summary:**
 
 1. Pick the next free number for `summaries/`.
-2. Create `summaries/XX_The_Title.md` with this shape:
+2. Create `summaries/XXX_The_Title.md` with this shape:
 
    ```markdown
    # <Title>
 
    - **Question:** <the specific question this summary answers>
    - **Last updated:** <YYYY-MM-DD>
-   - **Status:** <draft | reviewed | superseded by NN>
+   - **Status:** <draft | reviewed | superseded by NNN>
    - **Topic tags:** <comma-separated>
 
    ---
@@ -146,7 +150,7 @@ combining and reconciling multiple references.
    <The full synthesis. Reconcile agreements and contradictions across the
    references. Call out consensus vs. minority view vs. disputed. Include the
    concrete numbers, formulae, parameter ranges, and caveats an implementer
-   needs. Cite as you go: "(ref 03)", "(refs 03, 07)".>
+   needs. Cite as you go: "(ref 003)", "(refs 003, 007)".>
 
    ## Open questions / gaps
 
@@ -158,30 +162,30 @@ combining and reconciling multiple references.
 
    Every source this summary draws on, by number and title, for backtracking:
 
-   - `references/03_<Title>.md`
-   - `references/07_<Title>.md`
-   - `references/11_<Title>.md`
+   - `references/003_<Title>.md`
+   - `references/007_<Title>.md`
+   - `references/011_<Title>.md`
    ```
 
-3. Add a one-line entry to `summaries/00_Contents_Overview.md` (see §5).
+3. Add a one-line entry to `summaries/000_Contents_Overview.md` (see §5).
 
 **Rules for `summaries/`:**
 
 - **At least two references.** A summary is a synthesis. If only one source
   exists, either find more or leave it as a reference until you can.
 - **The "References used" list is mandatory** and must list every reference the
-  content relies on. Inline `(ref NN)` markers must all appear in that list.
+  content relies on. Inline `(ref NNN)` markers must all appear in that list.
 - Keep claims tied to references. If you add analysis that isn't in any
   reference (your own reasoning, a calculation), mark it explicitly as
   derived/authored so a later reader knows it isn't sourced.
 - When new references change the picture, **update the summary in place** and
   bump `Last updated`. If the conclusion flips, set the old summary's `Status`
-  to `superseded by NN` and write a new one rather than silently rewriting
+  to `superseded by NNN` and write a new one rather than silently rewriting
   history that other docs may cite.
 
 ---
 
-## 5. `00_Contents_Overview.md` (both folders)
+## 5. `000_Contents_Overview.md` (both folders)
 
 An always-current index of that folder. One line per file, in number order, each
 with a short description of what's inside so a reader can pick the right file
@@ -196,11 +200,11 @@ without opening all of them.
 Index of every file in this folder. Keep in sync on every add, update, or
 retire. Numbers are never reused.
 
-| #  | File | Description |
-|----|------|-------------|
-| 01 | `01_Momentum_Factor_Primer.md` | Investopedia-level overview of cross-sectional momentum, lookback windows, known failure modes. |
-| 02 | `02_Kelly_Criterion_Position_Sizing.md` | Derivation of full/fractional Kelly, why practitioners use half-Kelly. |
-| 03 | ~~`03_...`~~ | **Retired** 2026-09-06 — duplicate of 02, merged in. |
+| #   | File | Description |
+|-----|------|-------------|
+| 001 | `001_Momentum_Factor_Primer.md` | Investopedia-level overview of cross-sectional momentum, lookback windows, known failure modes. |
+| 002 | `002_Kelly_Criterion_Position_Sizing.md` | Derivation of full/fractional Kelly, why practitioners use half-Kelly. |
+| 003 | ~~`003_...`~~ | **Retired** 2026-09-06 — duplicate of 002, merged in. |
 ```
 
 - Update this file **in the same change** that adds, updates, or retires a
@@ -218,10 +222,10 @@ retire. Numbers are never reused.
 2. **Scrape.** Search the web, open the credible sources, and capture each one
    into `references/` per §3. Aim for a spread: foundational explainers, primary
    research / papers, practitioner write-ups, and dissenting views. Update
-   `references/00_Contents_Overview.md`.
+   `references/000_Contents_Overview.md`.
 3. **Synthesise.** Once you have ≥2 relevant references, write or update a file
    in `summaries/` per §4 that answers the framed question, citing every
-   reference used. Update `summaries/00_Contents_Overview.md`.
+   reference used. Update `summaries/000_Contents_Overview.md`.
 4. **Loop.** If the summary has open questions, go back to step 2 for those.
 
 ---
@@ -243,9 +247,9 @@ anything that promises returns without discussing risk or drawdown.
 ## 8. Checklist before you finish a research pass
 
 - [ ] Every new source is a file in `references/` with full metadata.
-- [ ] `references/00_Contents_Overview.md` lists every reference file, in order.
+- [ ] `references/000_Contents_Overview.md` lists every reference file, in order.
 - [ ] Each conclusion lives in a `summaries/` file, not only in `references/`.
 - [ ] Every summary has a filled-in **References used** list.
-- [ ] Every inline `(ref NN)` marker resolves to an entry in that list.
-- [ ] `summaries/00_Contents_Overview.md` lists every summary file, in order.
+- [ ] Every inline `(ref NNN)` marker resolves to an entry in that list.
+- [ ] `summaries/000_Contents_Overview.md` lists every summary file, in order.
 - [ ] No number was reused; any deletion left a tombstone.

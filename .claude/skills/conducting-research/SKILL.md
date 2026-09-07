@@ -33,14 +33,14 @@ territory.
 1. **Frame the question** — write the specific thing you need to know.
 2. **Scrape** — find credible sources (papers > practitioner books > reputable
    press / quant blogs > docs > forums). Capture each into
-   `references/XX_Title.md` using the template in `AGENTS.md` §3: metadata
+   `references/XXX_Title.md` using the template in `AGENTS.md` §3: metadata
    block (URL, author, published, retrieved date, type, tags) + near-verbatim
    `Raw content`. One source per file. Dump generously; do not paraphrase.
-3. **Index references** — add a row to `references/00_Contents_Overview.md`.
+3. **Index references** — add a row to `references/000_Contents_Overview.md`.
 4. **Synthesise** — once ≥2 relevant references exist, write or update
-   `summaries/XX_Title.md` per `AGENTS.md` §4: Question / TL;DR / Detail with
-   inline `(ref NN)` markers / Open questions / **References used** list.
-5. **Index summaries** — add a row to `summaries/00_Contents_Overview.md`.
+   `summaries/XXX_Title.md` per `AGENTS.md` §4: Question / TL;DR / Detail with
+   inline `(ref NNN)` markers / Open questions / **References used** list.
+5. **Index summaries** — add a row to `summaries/000_Contents_Overview.md`.
 6. **Loop** — chase the summary's open questions back through step 2.
 
 ## Quick Reference
@@ -50,18 +50,18 @@ territory.
 | Content | raw scraped source, verbatim | synthesised digest |
 | Per file | one source | one question, ≥2 sources |
 | Editing | append-mostly; capture a new file if the source changed | update in place, bump `Last updated` |
-| Mandatory | metadata block | **References used** list + inline `(ref NN)` |
+| Mandatory | metadata block | **References used** list + inline `(ref NNN)` |
 
 ## Key Rules
 
-- **Naming:** `XX_Title_In_Title_Case.md`, two-digit zero-padded, independent
-  sequence per folder, `00` reserved for the overview.
+- **Naming:** `XXX_Title_In_Title_Case.md`, three-digit zero-padded, independent
+  sequence per folder, `000` reserved for the overview.
 - **Numbers are permanent.** Never renumber — summaries cite references by
   number. A deleted file leaves a retired number with a tombstone row in the
-  folder's `00_Contents_Overview.md`.
-- **Update the matching `00_Contents_Overview.md` in the same change** that adds
+  folder's `000_Contents_Overview.md`.
+- **Update the matching `000_Contents_Overview.md` in the same change** that adds
   or retires a file. An index that lies is worse than none.
-- **Every `(ref NN)` marker must resolve** to an entry in that summary's
+- **Every `(ref NNN)` marker must resolve** to an entry in that summary's
   References used list.
 
 ## Common Mistakes
