@@ -1,32 +1,44 @@
-from tarakdingdung.domain.contracts.api.tokocrypto.v1.trade import TokocryptoV1TradeApi
+"""Live order execution for Tokocrypto over the Binance-standard `/api/v3` API."""
+from decimal import Decimal
+
+from tarakdingdung.domain.contracts.api.tokocrypto.v3.trade import TokocryptoV3TradeApi
 from tarakdingdung.domain.contracts.execution.executor import Executor
 from tarakdingdung.domain.contracts.logger.leveled import LeveledLogger
-from tarakdingdung.domain.models.algorithm import OrderType, Side, TimeInForce, PlannedOrder
+from tarakdingdung.domain.models.algorithm import (
+    OrderType, PlannedOrder, Side, TimeInForce,
+)
 from tarakdingdung.domain.models.error import DomainError, ErrorType
 from tarakdingdung.domain.models.execution import (
     ExecutionResult, OrderAck, OrderRejection, UnconfirmedOrder,
 )
 from tarakdingdung.domain.models.market import Symbol
+from tarakdingdung.domain.models.performance import Fill
 from tarakdingdung.infrastructure.execution.live.classify import is_settled
-from tarakdingdung.infrastructure.venue.symbols import underscored
+from tarakdingdung.infrastructure.venue.shared import to_decimal
+from tarakdingdung.infrastructure.venue.symbols import joined_upper
 
-# Tokocrypto's /open/v1 encodes these as integers rather than strings.
-_SIDES = {Side.BUY: 0, Side.SELL: 1}
-_TYPES = {OrderType.LIMIT: 1, OrderType.MARKET: 2, OrderType.LIMIT_MAKER: 7}
-_TIME_IN_FORCE = {TimeInForce.GTC: 1, TimeInForce.IOC: 2, TimeInForce.FOK: 3,
-                  TimeInForce.GTX: 4}
+_VENUE = "tokocrypto"
+_SIDES = {Side.BUY: "BUY", Side.SELL: "SELL"}
+_TYPES = {OrderType.LIMIT: "LIMIT", OrderType.MARKET: "MARKET",
+          OrderType.LIMIT_MAKER: "LIMIT_MAKER"}
+_TIME_IN_FORCE = {TimeInForce.GTC: "GTC", TimeInForce.IOC: "IOC", TimeInForce.FOK: "FOK"}
+
+_EMPTY = ExecutionResult(accepted=(), rejected=(), unconfirmed=(), fills=())
 
 
 class TokocryptoLiveExecutor(Executor):
-    """Sends real orders to Tokocrypto.
+    """Sends real orders to Tokocrypto via the Binance-standard `/api/v3` API.
 
-    Unlike Indodax, orders can be looked up by client id alone, so this venue
-    can serve the reconciliation path directly.
+    `create_order` is sent with `newOrderRespType=FULL`, so a crossing order
+    comes back with a `fills` array this maps straight to `Fill`s. A fill whose
+    commission was charged in an asset other than the quote currency records a
+    zero fee and a warning: a BNB-denominated number must not enter a
+    quote-denominated ledger.
     """
 
     _TAG = "execution/tokocrypto"
 
-    def __init__(self, *, trade: TokocryptoV1TradeApi, logger: LeveledLogger) -> None:
+    def __init__(self, *, trade: TokocryptoV3TradeApi, logger: LeveledLogger) -> None:
         self._trade = trade
         self._logger = logger
 
@@ -34,6 +46,7 @@ class TokocryptoLiveExecutor(Executor):
         accepted: list[OrderAck] = []
         rejected: list[OrderRejection] = []
         unconfirmed: list[UnconfirmedOrder] = []
+        fills: list[Fill] = []
 
         for order in orders:
             client_order_id = order.client_order_id or ""
@@ -44,58 +57,68 @@ class TokocryptoLiveExecutor(Executor):
                                          {"err": err, "client_order_id": client_order_id})
                 if is_settled(err.type):
                     rejected.append(OrderRejection(
-                        order=order, client_order_id=client_order_id,
-                        reason=err.message))
+                        order=order, client_order_id=client_order_id, reason=err.message))
                 else:
                     unconfirmed.append(UnconfirmedOrder(
-                        order=order, client_order_id=client_order_id,
-                        reason=err.message))
+                        order=order, client_order_id=client_order_id, reason=err.message))
                 continue
             accepted.append(OrderAck(order=order, client_order_id=client_order_id,
                                      venue_order_id=str(payload.get("orderId", ""))))
+            fills.extend(await self._fills(order, payload))
 
         return ExecutionResult(accepted=tuple(accepted), rejected=tuple(rejected),
-                               unconfirmed=tuple(unconfirmed), fills=())
+                               unconfirmed=tuple(unconfirmed), fills=tuple(fills))
 
     async def cancel_all(self, symbols: tuple[Symbol, ...]) -> None:
         for symbol in symbols:
-            payload = await self._trade.all_orders(symbol=underscored(symbol))
-            for entry in _rows(payload):
-                if entry.get("status") in (0, 1):  # NEW, PARTIALLY_FILLED
-                    await self._trade.cancel_order(order_id=_int(entry.get("orderId")),
-                                                   client_id=entry.get("clientId"))
+            resting = await self._trade.open_orders(symbol=joined_upper(symbol))
+            for entry in resting or []:
+                await self._trade.cancel_order(
+                    symbol=joined_upper(symbol),
+                    orig_client_order_id=entry.get("clientOrderId"))
 
     async def read_by_client_order_id(self, client_order_id: str, *,
                                       symbol: Symbol | None = None) -> ExecutionResult:
+        if symbol is None:
+            raise DomainError("tokocrypto v3 order lookup needs a symbol",
+                              ErrorType.UNIMPLEMENTED)
         try:
-            payload = await self._trade.query_order(client_id=client_order_id)
+            await self._trade.query_order(symbol=joined_upper(symbol),
+                                          orig_client_order_id=client_order_id)
         except DomainError as err:
             if err.type is ErrorType.NOT_FOUND:
-                # The venue never saw it, so the submission genuinely failed
-                # and there is nothing resting to account for.
-                return ExecutionResult(accepted=(), rejected=(), unconfirmed=(), fills=())
+                return _EMPTY
             raise
-        return ExecutionResult(accepted=(), rejected=(), unconfirmed=(), fills=())
+        # The venue knows the order. Back-filling its state and fills from the
+        # payload / my_trades is a known gap; the portfolio sync reconciles
+        # holdings against the venue in the meantime.
+        return _EMPTY
 
     async def _create(self, order: PlannedOrder, client_order_id: str) -> dict:
         return await self._trade.create_order(
-            symbol=underscored(order.symbol), side=_SIDES[order.side],
+            symbol=joined_upper(order.symbol), side=_SIDES[order.side],
             type=_TYPES[order.type], quantity=str(order.quantity),
             price=str(order.price) if order.price is not None else None,
-            client_id=client_order_id,
-            time_in_force=_TIME_IN_FORCE.get(order.time_in_force))
+            time_in_force=_TIME_IN_FORCE.get(order.time_in_force),
+            new_client_order_id=client_order_id, new_order_resp_type="FULL")
 
-
-def _rows(payload) -> list:
-    if isinstance(payload, list):
-        return payload
-    if isinstance(payload, dict) and isinstance(payload.get("list"), list):
-        return payload["list"]
-    return []
-
-
-def _int(value) -> int | None:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
+    async def _fills(self, order: PlannedOrder, payload: dict) -> list[Fill]:
+        timestamp = int(payload.get("transactTime") or 0)
+        quote = order.symbol.quote.upper()
+        out: list[Fill] = []
+        for entry in payload.get("fills") or []:
+            asset = (entry.get("commissionAsset") or "").upper()
+            if asset and asset != quote:
+                await self._logger.warn(
+                    f"{self._TAG}/Submit", "fee charged in a foreign asset",
+                    {"client_order_id": order.client_order_id,
+                     "commission_asset": asset, "quote": quote})
+            fee = (to_decimal(entry.get("commission"), "commission", venue=_VENUE,
+                              default=Decimal(0))
+                   if asset == quote else Decimal(0))
+            out.append(Fill(
+                symbol=order.symbol, side=order.side,
+                quantity=to_decimal(entry.get("qty"), "fill qty", venue=_VENUE),
+                price=to_decimal(entry.get("price"), "fill price", venue=_VENUE),
+                fee=fee, timestamp=timestamp))
+        return out
