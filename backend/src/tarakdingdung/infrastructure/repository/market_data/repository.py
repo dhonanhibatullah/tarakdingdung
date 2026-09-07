@@ -80,6 +80,24 @@ class SqlAlchemyMarketDataRepository(MarketDataRepository):
         return MarketSnapshot(timestamp=as_of, candles=candles, books=books,
                               last_prices=prices)
 
+    async def read_replay_snapshot(self, *, symbols, as_of, interval, lookback,
+                                   max_age) -> MarketSnapshot:
+        candles: dict[Symbol, tuple[Candle, ...]] = {}
+        last_prices: dict[Symbol, Decimal] = {}
+        for symbol in symbols:
+            series = await self._replay_lookback(symbol, interval, as_of, lookback)
+            if not series:
+                continue
+            newest = series[-1]
+            # A mid-window gap leaves the newest closed candle far behind
+            # ``as_of``. Sizing against it would invent a flat period; skip.
+            if as_of - newest.open_time > max_age:
+                continue
+            candles[symbol] = series
+            last_prices[symbol] = newest.close
+        return MarketSnapshot(timestamp=as_of, candles=candles, books={},
+                              last_prices=last_prices)
+
     async def read_coverage(self, *, symbol, interval, window) -> Coverage:
         async with self._db.session() as s:
             stamps = (await s.execute(q.build_read_open_times(
@@ -109,6 +127,15 @@ class SqlAlchemyMarketDataRepository(MarketDataRepository):
             rows = (await s.execute(q.build_read_candles_before(
                 symbol=symbol, interval=interval,
                 as_of=as_of, lookback=lookback))).scalars().all()
+        return tuple(candle_from_orm(r) for r in reversed(rows))
+
+    async def _replay_lookback(self, symbol, interval, as_of, lookback):
+        # inclusive=False: at a bar boundary, the candle opening at ``as_of``
+        # has not closed, so a replay must not see it.
+        async with self._db.session() as s:
+            rows = (await s.execute(q.build_read_candles_before(
+                symbol=symbol, interval=interval, as_of=as_of,
+                lookback=lookback, inclusive=False))).scalars().all()
         return tuple(candle_from_orm(r) for r in reversed(rows))
 
     @staticmethod

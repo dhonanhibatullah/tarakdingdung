@@ -50,6 +50,23 @@ class MarketDataRepository(ABC):
                             max_age: int) -> MarketSnapshot: ...
 
     @abstractmethod
+    async def read_replay_snapshot(self, *, symbols: tuple[Symbol, ...],
+                                   as_of: int, interval: str, lookback: int,
+                                   max_age: int) -> MarketSnapshot:
+        """A snapshot for a backtest replay, sourced from the candle series alone.
+
+        A REST poller cannot store a dense historical price or order-book
+        series, so a replay cannot depend on the ``prices`` / ``order_books``
+        tables the way a live cycle does. This reads only closed candles
+        (``open_time`` strictly before ``as_of``): ``last_prices`` is the close
+        of the newest such candle, ``candles`` is the lookback series, and
+        ``books`` is left empty for the caller to synthesise. A symbol whose
+        newest closed candle is older than ``max_age`` is omitted, so a
+        mid-window gap is skipped rather than sized against a stale bar.
+        """
+        ...
+
+    @abstractmethod
     async def read_coverage(self, *, symbol: Symbol, interval: str,
                             window: TimeRange) -> Coverage: ...
 

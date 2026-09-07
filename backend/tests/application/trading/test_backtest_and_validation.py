@@ -6,7 +6,7 @@ import pytest
 from tarakdingdung.application.trading.backtest.usecase import BacktestingUsecase
 from tarakdingdung.application.trading.validation.usecase import StrategyValidationUsecase
 from tarakdingdung.domain.models.error import DomainError, ErrorType
-from tarakdingdung.domain.models.market import Coverage, TimeRange
+from tarakdingdung.domain.models.market import Candle, Coverage, TimeRange
 from tarakdingdung.domain.models.performance import OverfittingReport
 from tarakdingdung.domain.usecases.trading.backtest import (
     ListBacktestsRequest, RunBacktestRequest,
@@ -30,10 +30,11 @@ HOUR = 3_600_000
 WINDOW = TimeRange(start=TS, end=TS + HOUR * 10)
 
 
-async def build(*, cycle_plan=None, coverage=None):
+async def build(*, cycle_plan=None, coverage=None, stub_snapshot=True):
     config = make_strategy(universe=(BTC,))
     market_data = FakeMarketDataRepository()
-    market_data.snapshot = snapshot()
+    if stub_snapshot:
+        market_data.snapshot = snapshot()
     await market_data.write_rules({BTC: rules(BTC)})
     market_data.coverage = coverage
     backtests = FakeBacktestRepository()
@@ -118,6 +119,33 @@ async def test_trading_moves_equity_and_pays_fees():
     result = await usecase.run(request(config))
     assert result.report.trade_count > 0
     assert result.report.cost_drag != 0.0
+
+
+async def test_replays_from_stored_candles_when_no_snapshot_is_stubbed():
+    # The real path: no stub snapshot, the replay builds one per stamp from the
+    # closed-candle series and synthesises a book so orders can fill.
+    usecase, config, _, planner = await build(
+        cycle_plan=plan(orders=(order(),)), stub_snapshot=False)
+    await usecase._market_data.write_candles(symbol=BTC, interval="1h", candles=tuple(
+        Candle(open_time=TS + HOUR * i, open=Decimal("100"), high=Decimal("100"),
+               low=Decimal("100"), close=Decimal("100"), volume=Decimal("10"))
+        for i in range(10)))
+    result = await usecase.run(request(config))
+    assert result.cycles > 0
+    assert planner.calls == result.cycles
+    assert result.report.trade_count > 0
+
+
+async def test_raises_when_the_window_yields_no_evaluable_cycle():
+    # Coverage gate passes (stubbed lenient) but there is nothing to step.
+    lenient = Coverage(symbol=BTC, interval="1h", window=WINDOW,
+                       expected=10, present=10, gaps=())
+    usecase, config, backtests, _ = await build(coverage=lenient, stub_snapshot=False)
+    with pytest.raises(DomainError) as e:
+        await usecase.run(request(config))
+    assert e.value.type is ErrorType.VALIDATION
+    assert "no evaluable cycles" in e.value.message
+    assert backtests.runs == {}
 
 
 async def test_a_missing_strategy_raises():

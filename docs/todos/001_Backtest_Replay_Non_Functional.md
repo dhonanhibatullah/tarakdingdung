@@ -1,10 +1,59 @@
 # 001 — Backtest replay is non-functional and fails silently
 
 - **Severity:** blocker
-- **Status:** open
+- **Status:** done (fixed 2026-09-07)
 - **Detected:** 2026-09-07, Docker run against real DB + live Indodax data
 - **Area:** `application/trading/backtest/`, `infrastructure/repository/market_data/`, `application/trading/collection/`
 - **Also breaks:** walk-forward validation (`POST /api/v1/trading/validations`), which replays through the same engine, and therefore PBO / overfitting scoring.
+
+## Resolution
+
+The replay now builds its snapshot from the **candle series alone** — it no
+longer touches the live `prices` / `order_books` tables, which only ever hold a
+"latest" row.
+
+- **New `MarketDataRepository.read_replay_snapshot`** (`domain/contracts/repository/market_data.py`,
+  impl in `infrastructure/repository/market_data/repository.py`): reads only
+  *closed* candles (`open_time` **strictly** before `as_of` — a new
+  `inclusive=False` path on `build_read_candles_before`, so the bar opening at
+  a step boundary, which has not closed, is never seen). `last_prices` is the
+  close of the newest closed candle; `books` is left empty. A symbol whose
+  newest closed candle is older than `max_age` is omitted, so a mid-window gap
+  is skipped rather than sized against a stale bar. The live `read_snapshot` is
+  untouched.
+- **New `application/trading/backtest/replay.py`** — `synthetic_book(candle,
+  …)` expands a bar into a `levels`-deep ladder each side of the close
+  (`half_spread` at level 0, `+ level_step` per rung), each rung holding
+  `volume / levels`. A small order pays the spread only; a larger one walks the
+  ladder and accrues slippage via `DepthWalkCostModel`; an order bigger than
+  the bar's volume is `fillable=False` → rejected, not filled at an invented
+  price. A zero-volume bar yields zero-size rungs → every order rejected
+  (visible in the rejected count). `replay_snapshot(base, …)` fills the book
+  gap for any symbol that lacks one.
+- **`simulation.py`** — a fill now crosses the spread: `_fill_price` takes the
+  near touch of the book (`asks[0]` for a buy, `bids[0]` for a sell) instead of
+  the strategy's own limit, so the spread is paid and the cost model's slippage
+  is only the extra from walking deeper.
+- **`BacktestingUsecase`** — steps via `read_replay_snapshot` + `replay_snapshot`;
+  synthetic-book shape is constructor-configurable
+  (`replay_half_spread` 5bps, `replay_book_levels` 5, `replay_level_step` 5bps).
+  It now **raises** `VALIDATION` when the window yields 0 evaluable cycles
+  instead of persisting an all-zero report (also closes `007`).
+
+**Verified in Docker** against real Indodax candles: a `pipeline` / momentum
+strategy backtest over an 8-day window returned `trade_count: 70`,
+`total_return: -4.6%`, `sharpe: -3.9`, `turnover: 16.8`, `cost_drag: 3.4%`
+(the momentum baseline loses after costs — an honest result). Walk-forward
+validation produced a real PBO verdict (`probability 0.17`, `passed: false`)
+instead of erroring.
+
+Tests: `tests/application/trading/test_backtest_replay.py` (new),
+`tests/application/trading/test_backtest_and_validation.py` (extended). Full
+suite 734 passing.
+
+---
+
+## Original analysis
 
 ## Symptom
 

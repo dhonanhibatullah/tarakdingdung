@@ -119,6 +119,22 @@ class FakeMarketDataRepository(MarketDataRepository):
             return self.snapshot
         return MarketSnapshot(timestamp=as_of, candles={}, books={}, last_prices={})
 
+    async def read_replay_snapshot(self, *, symbols, as_of, interval, lookback, max_age):
+        if self.snapshot is not None:
+            return self.snapshot
+        candles: dict[Symbol, tuple[Candle, ...]] = {}
+        last_prices: dict[Symbol, Decimal] = {}
+        for symbol in symbols:
+            stored = sorted(self.candles.get((symbol, interval), []),
+                            key=lambda c: c.open_time)
+            series = [c for c in stored if c.open_time < as_of][-lookback:]
+            if not series or as_of - series[-1].open_time > max_age:
+                continue
+            candles[symbol] = tuple(series)
+            last_prices[symbol] = series[-1].close
+        return MarketSnapshot(timestamp=as_of, candles=candles, books={},
+                              last_prices=last_prices)
+
     async def read_coverage(self, *, symbol, interval, window) -> Coverage:
         if self.coverage is not None:
             return self.coverage

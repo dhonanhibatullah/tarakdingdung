@@ -9,8 +9,8 @@ worked · `done` — fixed and verified · `wontfix` — deliberately not addres
 
 | #   | File | Problem | Severity | Status |
 |-----|------|---------|----------|--------|
-| 001 | `001_Backtest_Replay_Non_Functional.md` | Backtest (and walk-forward validation) replays 0 cycles / 0 trades against real collected data and returns an all-zero report with no error. The collector never stores the historical price & order-book *series* the replay needs. | blocker | open |
-| 002 | `002_Docker_Compose_Port_Mismatch_Unhealthy.md` | `docker compose up` produces a permanently-unhealthy container and an unreachable host port whenever `TRDD_BE_HTTP_PORT` is set (the project's own `.env.example` sets it). | high | open |
+| 001 | `001_Backtest_Replay_Non_Functional.md` | Backtest (and walk-forward validation) replayed 0 cycles / 0 trades against real collected data and returned an all-zero report with no error. The collector never stores the historical price & order-book *series* the replay needs. | blocker | **done** |
+| 002 | `002_Docker_Compose_Port_Mismatch_Unhealthy.md` | `docker compose up` produced a permanently-unhealthy container and an unreachable host port whenever `TRDD_BE_HTTP_PORT` was set (the project's own `.env.example` sets it). | high | **done** |
 | 003 | `003_Tokocrypto_Signed_API_Forbidden_2015.md` | Every signed Tokocrypto `/api/v3` call returns `-2015` (invalid key / IP / permission). Tokocrypto balance sync and order placement are unavailable; the live order path is still completely unexercised. | high | open |
 | 004 | `004_Paper_Trading_Via_Engine_Not_Simulated.md` | A PAPER strategy stepped by the cron engine writes orphaned fills; the portfolio is rebuilt from real venue balances, so paper positions never materialise. `fills` cannot distinguish paper from live. | medium | open |
 | 005 | `005_Prices_And_Order_Books_Grow_Unbounded.md` | The collector `INSERT`s (not upserts) a `prices` and `order_books` row every run with no retention — unbounded growth, duplicate rows. | low | open |

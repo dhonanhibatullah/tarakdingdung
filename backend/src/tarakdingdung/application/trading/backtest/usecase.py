@@ -4,6 +4,9 @@ from decimal import Decimal
 from uuid import UUID
 
 from tarakdingdung.application.shared.intervals import interval_ms
+from tarakdingdung.application.trading.backtest.replay import (
+    DEFAULT_HALF_SPREAD, DEFAULT_LEVEL_STEP, DEFAULT_LEVELS, replay_snapshot,
+)
 from tarakdingdung.application.trading.backtest.simulation import equity_of, simulate
 from tarakdingdung.domain.contracts.algorithm.cost import CostModel
 from tarakdingdung.domain.contracts.algorithm.cycle import CyclePlanner
@@ -43,7 +46,10 @@ class BacktestingUsecase(Backtesting):
     def __init__(self, *, strategies: StrategyRepository,
                  market_data: MarketDataRepository, backtests: BacktestRepository,
                  planner_factory: PlannerFactory, cost_model: CostModel,
-                 evaluator: PerformanceEvaluator, logger: LeveledLogger) -> None:
+                 evaluator: PerformanceEvaluator, logger: LeveledLogger,
+                 replay_half_spread: Decimal = DEFAULT_HALF_SPREAD,
+                 replay_book_levels: int = DEFAULT_LEVELS,
+                 replay_level_step: Decimal = DEFAULT_LEVEL_STEP) -> None:
         self._strategies = strategies
         self._market_data = market_data
         self._backtests = backtests
@@ -51,6 +57,10 @@ class BacktestingUsecase(Backtesting):
         self._cost_model = cost_model
         self._evaluator = evaluator
         self._logger = logger
+        # Shape of the book each bar is expanded into (see backtest/replay.py).
+        self._half_spread = replay_half_spread
+        self._book_levels = replay_book_levels
+        self._level_step = replay_level_step
 
     async def run(self, request: RunBacktestRequest) -> RunBacktestResult:
         config = await self._config(request.strategy_id)
@@ -66,12 +76,15 @@ class BacktestingUsecase(Backtesting):
         cycles = rejected = 0
 
         for stamp in self._timeline(request):
-            snapshot = await self._market_data.read_snapshot(
+            base = await self._market_data.read_replay_snapshot(
                 symbols=config.universe, as_of=stamp, interval=request.interval,
                 lookback=self._SNAPSHOT_LOOKBACK, max_age=interval_ms(request.interval) * 2)
-            if not snapshot.last_prices:
+            if not base.last_prices:
                 continue
 
+            snapshot = replay_snapshot(base, half_spread=self._half_spread,
+                                       levels=self._book_levels,
+                                       level_step=self._level_step)
             cycles += 1
             plan = planner.plan(strategy_id=config.id, snapshot=snapshot,
                                 portfolio=portfolio, state=self._risk_state(curve, stamp),
@@ -83,6 +96,16 @@ class BacktestingUsecase(Backtesting):
             portfolio = outcome.portfolio
             fills.extend(outcome.fills)
             curve.append(EquityPoint(timestamp=stamp, equity=portfolio.equity))
+
+        if cycles == 0:
+            err = DomainError(
+                "backtest produced no evaluable cycles: candle coverage passed "
+                "the gate but no usable snapshot could be built over the window",
+                ErrorType.VALIDATION)
+            await self._logger.error(f"{self._TAG}/Run", "no evaluable cycles",
+                                     {"err": err, "strategy_id": config.id,
+                                      "window": (request.window.start, request.window.end)})
+            raise err
 
         report = self._evaluator.evaluate(tuple(curve), tuple(fills))
         run_id = await self._persist(config, request, report) if request.persist else None

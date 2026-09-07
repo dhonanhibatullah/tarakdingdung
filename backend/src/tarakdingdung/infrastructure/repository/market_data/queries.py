@@ -67,11 +67,17 @@ def build_read_candles(*, symbol: Symbol, interval: str, window: TimeRange,
 
 
 def build_read_candles_before(*, symbol: Symbol, interval: str, as_of: int,
-                              lookback: int) -> Select:
+                              lookback: int, inclusive: bool = True) -> Select:
     # Descending then reversed by the caller: the newest N rows are what a
     # lookback window means, and ordering ascending would scan from the start.
+    #
+    # ``inclusive`` is the lookahead boundary. A live cycle wants the bar in
+    # progress (its close so far is the latest price), so ``open_time <= as_of``.
+    # A replay steps exactly on bar boundaries, where ``open_time == as_of`` is
+    # a bar that has not closed yet, so it passes ``inclusive=False``.
+    bound = C.open_time <= as_of if inclusive else C.open_time < as_of
     return (select(C)
-            .where(_match(C, symbol), C.interval == interval, C.open_time <= as_of)
+            .where(_match(C, symbol), C.interval == interval, bound)
             .order_by(C.open_time.desc())
             .limit(lookback))
 
