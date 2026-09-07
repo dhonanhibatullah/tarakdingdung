@@ -1,17 +1,19 @@
 "use client";
 
-import { CircleDollarSign, Menu } from "lucide-react";
+import { CircleDollarSign, LogOut, Menu, UserRound } from "lucide-react";
 
 import IconButton from "@/components/ui/icon-button";
-import StatusBadge from "@/components/ui/status-badge";
 import { APP_NAME } from "@/config/app";
+import { logoutAction } from "@/lib/actions/session-actions";
 
 interface AppBarProps {
+  userName: string;
   navigationOpen?: boolean;
   onNavigationToggle?: () => void;
 }
 
 export default function AppBar({
+  userName,
   navigationOpen = false,
   onNavigationToggle = () => undefined,
 }: AppBarProps) {
@@ -36,7 +38,19 @@ export default function AppBar({
         </div>
       </div>
 
-      <StatusBadge variant="neutral">Engine idle</StatusBadge>
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="bg-surface text-primary flex size-9 shrink-0 items-center justify-center rounded-full">
+          <UserRound aria-hidden="true" className="size-5" />
+        </span>
+        <span className="max-w-32 truncate text-sm font-semibold sm:max-w-48">
+          {userName}
+        </span>
+        <form action={logoutAction}>
+          <IconButton type="submit" aria-label="Log out">
+            <LogOut aria-hidden="true" className="size-5" />
+          </IconButton>
+        </form>
+      </div>
     </header>
   );
 }

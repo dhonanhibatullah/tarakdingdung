@@ -26,20 +26,38 @@ and the trading-domain navigation.
 
 ```
 src/
+  proxy.ts               Next 16 middleware: session gate + edge token refresh
   app/
-    layout.tsx            root: fonts (Inter + Poppins), metadata
-    page.tsx              redirects / -> /dashboard
+    layout.tsx            root: fonts (Inter + Poppins), metadata, <ToastProvider>
+    page.tsx              redirects / -> /dashboard or /login by session
+    forbidden.tsx         the 403 page (authInterrupts)
     globals.css           Tailwind import + the @theme design tokens
+    login/               login page + LoginForm + SignedOutNotice + _lib/actions
+    auth/invalid-session/  route handler: clears cookies, 307 -> /login
     (app)/
-      layout.tsx          wraps everything in <AppShell>
+      layout.tsx          requireSessionContext() -> <AppShell user permissions>
       dashboard/          the overview page + its _components
-      strategies/ … admin/access-control/   one page.tsx each (placeholders)
+      strategies/         page + loading + error + _components/ + _lib/ (fully wired)
+      backtests/ … admin/access-control/   one page.tsx each (placeholders)
   components/
-    layout/   AppShell, AppBar, Sidebar, SidebarGroup, is-current-path
-    ui/       card, page-header, status-badge, icon-button, states, placeholder-page
+    layout/   AppShell, AppBar, Sidebar, SidebarGroup, is-current-path, LogoutButton, AccessDenied
+    ui/       card, page-header, status-badge, icon-button, states, placeholder-page,
+              button, input, label, select, toast, toast-provider
+    collection/  FilterBar, Pagination, ResourceCard
+  hooks/     use-toast, use-action-feedback
+  lib/
+    api/       client (apiFetch + ApiError), auth, types, version, profile,
+               users, permissions, roles, strategies — server-only
+    session/   cookies, jwt (decodeJwtExpiry), session (getSession,
+               getSessionContext, requireSessionContext, requireAnyPermission)
+    actions/   session-actions (logoutAction)
+    forms/     action-state, parse (formText, formBool, parseJsonObject)
+    navigation.ts       isProtectedRoute, canVisitRoute, visibleNavigation
+    permissions.ts      hasPermission, canAccessAny
+    query.ts / collection-query.ts   search-param parsing + page query
   config/
     app.ts         APP_NAME, APP_VERSION
-    navigation.ts  NAVIGATION: the sidebar groups and their routes
+    navigation.ts  NAVIGATION (each page's requiredAny perms) + PUBLIC_ROUTES
     env.ts         TRDD_FE_* reads (API_BASE_URL, COOKIE_SECURE)
     index.ts       re-export
 ```
@@ -62,24 +80,56 @@ values in one place; the accent here is green (`--primary` `#15803d` light /
 with a matching `page.tsx` under `src/app/(app)/`, and an icon entry in
 `SidebarGroup.tsx`'s `NAVIGATION_ICONS` map (falls back to `Radio`).
 
+## Auth & sessions
+
+Ported from `nusapala-things/frontend`. Every route except `PUBLIC_ROUTES`
+(`/`, `/login`, `/auth/invalid-session`) requires a signed-in session.
+
+- **Login:** `POST /api/v1/auth/login` returns `{ user, role, permissions,
+  access_token, refresh_token }`. `lib/api/auth.ts:persistSession` writes both
+  tokens as httpOnly cookies (`trdd_access_token` / `trdd_refresh_token`),
+  `secure` from `TRDD_FE_COOKIE_SECURE`, `expires` decoded from the JWT `exp`.
+- **`src/proxy.ts`** (Next 16 middleware — the file is `proxy.ts`, exporting
+  `proxy` + `config`, not `middleware.ts`): redirects protected routes to
+  `/login` with no valid session; when the access token is expired/near, calls
+  the backend refresh at the edge and rewrites the cookies; bounces `/login`
+  to `/dashboard` when already signed in.
+- **Server side:** `requireSessionContext()` (in `(app)/layout.tsx`) redirects
+  to `/login`; `requireAnyPermission([...])` calls `forbidden()` (needs
+  `experimental.authInterrupts` in `next.config.ts`) when the token's
+  `permissions` claim lacks all of them. `AppShell` gets `user` + `permissions`
+  and `visibleNavigation` hides links the session can't open.
+- **Mutations** are server actions in `_lib/actions.ts` files: re-check the
+  permission, call `lib/api/*`, `revalidatePath()`, return an `ActionResult`
+  the client surfaces via `useActionFeedback` -> toast.
+
+Backend contract: all `/api/v1/trading/*` need `Authorization: Bearer <jwt>`;
+`apiFetch` attaches it from the cookie. Envelopes: `PageDataResponse<T>`,
+`IdResponse`, `ErrorResponse` (`{ error, message }`) — see `lib/api/types.ts`.
+
 ## Data
 
-There is no API client, session, or auth layer yet. The dashboard renders
-static sample figures behind a visible "connect the engine API" note, and every
-non-dashboard route is an honest placeholder. `config/env.ts` already reads the
-backend URL and cookie flag for when fetching is wired in — mirror
-nusapala-things' `lib/api/` + `lib/session/` when you add it.
+The **dashboard** still renders static sample figures behind a visible "connect
+the engine API" note. **Strategies** is fully wired (list + filters +
+pagination + create / enable-disable / delete / dry-run). The other routes
+(`backtests`, `validations`, `portfolio`, `market-data`, `admin/*`) are still
+placeholders — wire them the same way: a `page.tsx` with
+`requireAnyPermission`, `lib/api/<resource>.ts` for the calls, `_lib/actions.ts`
+for mutations, `_components/` for the view.
 
 ## Environment
 
 `TRDD_FE_`-prefixed, server-side only (no `NEXT_PUBLIC_`). See `.env.example`:
-`TRDD_FE_API_BASE_URL`, `TRDD_FE_COOKIE_SECURE`, `TRDD_FE_HTTP_PORT` (compose
-publish port only). `cp .env.example .env` before running.
+`TRDD_FE_API_BASE_URL`, `TRDD_FE_COOKIE_SECURE` (httpOnly session cookie
+`secure` flag — keep `false` on local http), `TRDD_FE_HTTP_PORT` /
+`TRDD_FE_BIND_HOST` (compose publish only). `cp .env.example .env` before
+running.
 
 ## Running
 
 - **Dev:** `pnpm install && pnpm dev` → http://localhost:3000
 - **Check:** `pnpm lint`, `pnpm typecheck`, `pnpm build`
 - **Docker:** `docker compose up --build` — multi-stage build of the Next
-  `standalone` output, unprivileged runtime, healthcheck on `/dashboard`. The
-  container always serves on 3000; `TRDD_FE_HTTP_PORT` maps the host side.
+  `standalone` output, unprivileged runtime, healthcheck on `/login`. The
+  container always serves on 3000; `TRDD_FE_HTTP_PORT` maps the host side,
+  `TRDD_FE_BIND_HOST` the interface.

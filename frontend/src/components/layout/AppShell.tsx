@@ -3,19 +3,27 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
-import { NAVIGATION } from "@/config/navigation";
+import { visibleNavigation } from "@/lib/navigation";
+import type { UserResponse } from "@/lib/api/users";
 
 import AppBar from "./AppBar";
 import Sidebar from "./Sidebar";
 
 interface AppShellProps {
+  user: UserResponse;
+  permissions: readonly string[];
   children: ReactNode;
 }
 
-export default function AppShell({ children }: AppShellProps) {
+export default function AppShell({
+  user,
+  permissions,
+  children,
+}: AppShellProps) {
   const pathname = usePathname();
   const [navigationOpen, setNavigationOpen] = useState(true);
   const mainContentRef = useRef<HTMLDivElement>(null);
+  const navigation = visibleNavigation(new Set(permissions));
 
   useEffect(() => {
     mainContentRef.current?.scrollTo(0, 0);
@@ -30,6 +38,7 @@ export default function AppShell({ children }: AppShellProps) {
         Skip to main content
       </a>
       <AppBar
+        userName={user.name}
         navigationOpen={navigationOpen}
         onNavigationToggle={() => setNavigationOpen((open) => !open)}
       />
@@ -41,7 +50,7 @@ export default function AppShell({ children }: AppShellProps) {
         >
           <div className="h-full w-64 overflow-y-auto">
             <Sidebar
-              navigation={NAVIGATION}
+              navigation={navigation}
               pathname={pathname}
               idPrefix="nav"
             />
