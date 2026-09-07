@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     seed_admin_password: str = "changeme12345"
     seed_user_password: str = "changeme12345"
 
+    tokocrypto_api_key: str = "changemetokocryptoapikey"
+    tokocrypto_secret_key: str = "changemetokocryptosecretkey"
+    indodax_v1_api_key: str = "changemeindodaxv1apikey"
+    indodax_v1_secret_key: str = "changemeindodaxv1secretkey"
+    indodax_v2_api_key: str = "changemeindodaxv2apikey"
+    indodax_v2_secret_key: str = "changemeindodaxv2secretkey"
+
     @field_validator("http_cors_allowed_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
