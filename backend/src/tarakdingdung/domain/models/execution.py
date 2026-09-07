@@ -10,11 +10,14 @@ from tarakdingdung.domain.models.performance import Fill
 class OrderState(StrEnum):
     """What we know about an order, which is not always what is true.
 
-    ``UNCONFIRMED`` is the important one: the submission failed in transport,
-    so the order may or may not exist at the venue. It is neither accepted nor
-    rejected, and it must be reconciled by client order id rather than retried.
+    ``PENDING`` is journalled but not yet submitted — the window in which a
+    crash leaves orders that may or may not have reached the venue.
+    ``UNCONFIRMED`` is the same ambiguity after a failed submission. Both are
+    reconciled by client order id rather than retried; the other two are
+    settled.
     """
 
+    PENDING = "PENDING"
     ACCEPTED = "ACCEPTED"
     REJECTED = "REJECTED"
     UNCONFIRMED = "UNCONFIRMED"
