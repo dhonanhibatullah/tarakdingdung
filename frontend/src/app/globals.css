@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light dark;
+  --background: #ffffff;
+  --foreground: #1a1c1a;
+  --surface: #f0fdf4;
+  --primary: #15803d;
+  --accent: #86efac;
+  --highlight: #dcfce7;
+  --ink: #1a1c1a;
+  --muted: #f4f5f4;
+  --muted-foreground: #5f665f;
+  --border: color-mix(in srgb, #1a1c1a 14%, transparent);
+  --control-border: #a3a8a3;
+  --success: #287a52;
+  --warning: #9a5b13;
+  --critical: #b43b35;
+  --info: #356f91;
+  --destructive: #a8342f;
+  --focus: #15803d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-highlight: var(--highlight);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-control-border: var(--control-border);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-critical: var(--critical);
+  --color-info: var(--info);
+  --color-destructive: var(--destructive);
+  --color-focus: var(--focus);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-poppins);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #17181a;
+    --foreground: #f1f2f1;
+    --surface: #172019;
+    --primary: #22c55e;
+    --accent: #86efac;
+    --highlight: #bbf7d0;
+    --ink: #f1f2f1;
+    --muted: #1b201c;
+    --muted-foreground: #b3b8b3;
+    --border: color-mix(in srgb, #f1f2f1 22%, transparent);
+    --control-border: #474a47;
+    --success: #65bc8d;
+    --warning: #efb462;
+    --critical: #ed827a;
+    --info: #78b8df;
+    --destructive: #ec817c;
+    --focus: #22c55e;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: clip;
+}
+
+.font-display {
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
