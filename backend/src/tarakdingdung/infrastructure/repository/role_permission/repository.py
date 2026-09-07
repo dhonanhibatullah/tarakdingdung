@@ -12,6 +12,7 @@ from tarakdingdung.infrastructure.repository.shared.errors import ConflictMatch,
 from tarakdingdung.infrastructure.repository.shared.mappers import (
     permission_from_orm, role_from_orm, role_permission_from_orm,
 )
+from tarakdingdung.infrastructure.repository.shared.results import require, rows_affected
 
 _PAIR_CONFLICT = ConflictMatch("role_permission", ErrorType.ROLE_PERMISSION_EXISTS)
 
@@ -31,7 +32,7 @@ class SqlAlchemyRolePermissionRepository(RolePermissionRepository):
                     new_id = await s.scalar(q.build_create(
                         role_id=role_id, permission_id=permission_id, created_by=created_by))
                 await self._db.persist(s)
-                return new_id
+                return require(new_id, "failed to assign role permission")
         except SQLAlchemyError as exc:
             raise map_db_error("failed to assign role permission", exc, _PAIR_CONFLICT) from exc
 
@@ -57,13 +58,13 @@ class SqlAlchemyRolePermissionRepository(RolePermissionRepository):
     async def delete_by_id(self, id: UUID) -> None:
         async with self._db.session() as s:
             result = await s.execute(q.build_delete_by_id(id))
-            if result.rowcount == 0:
+            if rows_affected(result) == 0:
                 raise DomainError("role permission not found", ErrorType.NOT_FOUND)
             await self._db.persist(s)
 
     async def delete_by_role_id_and_permission_id(self, *, role_id, permission_id) -> None:
         async with self._db.session() as s:
             result = await s.execute(q.build_delete_by_pair(role_id, permission_id))
-            if result.rowcount == 0:
+            if rows_affected(result) == 0:
                 raise DomainError("role permission not found", ErrorType.NOT_FOUND)
             await self._db.persist(s)

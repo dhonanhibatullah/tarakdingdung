@@ -12,6 +12,7 @@ from tarakdingdung.infrastructure.repository.shared.errors import ConflictMatch,
 from tarakdingdung.infrastructure.repository.shared.mappers import (
     permission_from_orm, role_from_orm,
 )
+from tarakdingdung.infrastructure.repository.shared.results import require, rows_affected
 
 _NAME_CONFLICT = ConflictMatch("name", ErrorType.ROLE_NAME_EXISTS)
 
@@ -30,7 +31,7 @@ class SqlAlchemyRoleRepository(RoleRepository):
                         name=name, description=description,
                         is_default=is_default, created_by=created_by))
                 await self._db.persist(s)
-                return new_id
+                return require(new_id, "failed to create role")
         except SQLAlchemyError as exc:
             raise map_db_error("failed to create role", exc, _NAME_CONFLICT) from exc
 
@@ -73,7 +74,7 @@ class SqlAlchemyRoleRepository(RoleRepository):
                     result = await s.execute(q.build_update_by_id(
                         id, name=name, description=description, is_default=is_default,
                         preferences=preferences, updated_by=updated_by))
-                    if result.rowcount == 0:
+                    if rows_affected(result) == 0:
                         raise DomainError("role not found", ErrorType.NOT_FOUND)
                 await self._db.persist(s)
         except SQLAlchemyError as exc:
@@ -83,5 +84,5 @@ class SqlAlchemyRoleRepository(RoleRepository):
         async with self._db.session() as s:
             result = await s.execute(q.build_soft_delete(id, deleted_by=deleted_by))
             await self._db.persist(s)
-        if result.rowcount == 0:
+        if rows_affected(result) == 0:
             raise DomainError("role not found", ErrorType.NOT_FOUND)

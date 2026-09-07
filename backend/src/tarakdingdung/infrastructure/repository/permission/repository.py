@@ -9,6 +9,7 @@ from tarakdingdung.infrastructure.repository.database.session import Database
 from tarakdingdung.infrastructure.repository.permission import queries as q
 from tarakdingdung.infrastructure.repository.shared.errors import ConflictMatch, map_db_error
 from tarakdingdung.infrastructure.repository.shared.mappers import permission_from_orm
+from tarakdingdung.infrastructure.repository.shared.results import require, rows_affected
 
 _NAME_CONFLICT = ConflictMatch("name", ErrorType.PERMISSION_NAME_EXISTS)
 
@@ -24,7 +25,7 @@ class SqlAlchemyPermissionRepository(PermissionRepository):
                     new_id = await s.scalar(
                         q.build_create(name=name, description=description, created_by=created_by))
                 await self._db.persist(s)
-                return new_id
+                return require(new_id, "failed to create permission")
         except SQLAlchemyError as exc:
             raise map_db_error("failed to create permission", exc, _NAME_CONFLICT) from exc
 
@@ -58,12 +59,12 @@ class SqlAlchemyPermissionRepository(PermissionRepository):
                 await self._db.persist(s)
         except SQLAlchemyError as exc:
             raise map_db_error("failed to update permission", exc, _NAME_CONFLICT) from exc
-        if result.rowcount == 0:
+        if rows_affected(result) == 0:
             raise DomainError("permission not found", ErrorType.NOT_FOUND)
 
     async def delete_by_id(self, id, *, deleted_by=None) -> None:
         async with self._db.session() as s:
             result = await s.execute(q.build_soft_delete(id, deleted_by=deleted_by))
             await self._db.persist(s)
-        if result.rowcount == 0:
+        if rows_affected(result) == 0:
             raise DomainError("permission not found", ErrorType.NOT_FOUND)

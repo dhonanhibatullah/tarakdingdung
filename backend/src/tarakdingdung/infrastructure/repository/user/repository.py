@@ -11,6 +11,7 @@ from tarakdingdung.infrastructure.repository.shared.errors import ConflictMatch,
 from tarakdingdung.infrastructure.repository.shared.mappers import (
     permission_from_orm, user_from_orm, user_list_item_from_orm,
 )
+from tarakdingdung.infrastructure.repository.shared.results import require, rows_affected
 from tarakdingdung.infrastructure.repository.user import queries as q
 
 _USERNAME_CONFLICT = ConflictMatch("username", ErrorType.USERNAME_EXISTS)
@@ -28,7 +29,7 @@ class SqlAlchemyUserRepository(UserRepository):
                         role_id=role_id, name=name, bio=bio, username=username,
                         password_hash=password_hash, created_by=created_by))
                 await self._db.persist(s)
-                return new_id
+                return require(new_id, "failed to create user")
         except SQLAlchemyError as exc:
             raise map_db_error("failed to create user", exc, _USERNAME_CONFLICT) from exc
 
@@ -68,12 +69,12 @@ class SqlAlchemyUserRepository(UserRepository):
                 await self._db.persist(s)
         except SQLAlchemyError as exc:
             raise map_db_error("failed to update user", exc, _USERNAME_CONFLICT) from exc
-        if result.rowcount == 0:
+        if rows_affected(result) == 0:
             raise DomainError("user not found", ErrorType.NOT_FOUND)
 
     async def delete_by_id(self, id, *, deleted_by=None) -> None:
         async with self._db.session() as s:
             result = await s.execute(q.build_soft_delete(id, deleted_by=deleted_by))
             await self._db.persist(s)
-        if result.rowcount == 0:
+        if rows_affected(result) == 0:
             raise DomainError("user not found", ErrorType.NOT_FOUND)
