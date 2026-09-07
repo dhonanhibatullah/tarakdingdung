@@ -31,10 +31,13 @@
 - **Indodax v2** = 13 endpoints: order create/cancel/query, openOrders, account,
   order/histories, myTrades, capital withdraw+deposit history, deposit address
   list, fiat orders, coin withdraw apply, fiat withdraw.
-- **Tokocrypto v1** = 19 endpoints: common time+symbols; market
-  depth/trades/agg-trades/klines; orders create/detail/cancel/list, OCO,
-  orders/trades; account spot + spot/asset; withdraws (POST+GET), deposits
-  (GET), deposits/address; user-listen-token.
+- **Tokocrypto v1** = 20 REST endpoints: common time+symbols; market
+  depth/trades/agg-trades/klines + `executionRules` (on `.site/api/v3`); orders
+  create/detail/cancel/list, OCO, orders/trades; account spot + spot/asset;
+  withdraws (POST+GET), deposits (GET), deposits/address; user-listen-token.
+- **WebSocket** (see §E): Indodax market + private streams, Tokocrypto market +
+  user-data streams — contracts and a reconnecting baseline client are wired
+  alongside the REST surface.
 - **Recommended coverage order** (from summary 001): Tokocrypto v1 first,
   Indodax v2 second, Indodax v1 only as fallback. Contracts + infra clients for
   all three live under `backend/src/tarakdingdung/{domain/contracts,infrastructure}/api/`.
@@ -131,6 +134,7 @@ breach. Enum ints: `side` 0=BUY 1=SELL; `type` 1=LIMIT 2=MARKET 3=STOP_LOSS
 | 4 | `GET /open/v1/market/trades` | NONE | `symbol`*, `fromId`, `limit` (≤ 1000) |
 | 5 | `GET /open/v1/market/agg-trades` | NONE | `symbol`*, `fromId`, `startTime`, `endTime`, `limit` |
 | 6 | `GET /open/v1/market/klines` | NONE | `symbol`*, `interval`* (1m…1M), `startTime`, `endTime`, `limit` |
+| 6b | `GET /api/v3/executionRules` (on `www.tokocrypto.site`) | NONE | `symbol` / `symbols` / `symbolStatus` — price-range + STP rules; Binance-standard host, so symbol is `BTCUSDT` not `BTC_USDT` |
 | 7 | `POST /open/v1/orders` | SIGNED | `symbol`*, `side`*, `type`*, `quantity`, `quoteOrderQty`, `price`, `stopPrice`, `icebergQty`, `clientId`, `timeInForce`, `selfTradePreventionMode` |
 | 8 | `GET /open/v1/orders/detail` | SIGNED | `orderId`* / `clientId` |
 | 9 | `POST /open/v1/orders/cancel` | SIGNED | `orderId` / `clientId` |
@@ -148,23 +152,46 @@ breach. Enum ints: `side` 0=BUY 1=SELL; `type` 1=LIMIT 2=MARKET 3=STOP_LOSS
 Deprecated: `POST/PUT/DELETE /open/v1/user-data-stream` (decommissioned
 2026-04-30).
 
-### E. Mapping to code
+### E. WebSocket surfaces (contracts + baseline infra added 2026-09-07)
+
+REST is the primary surface; these WS streams are also wired as
+`contracts/api/**/*_ws.py` + `infrastructure/api/**` with a shared
+reconnecting client (`shared/websocket.py`).
+
+| Surface | URL | Auth | Channels / streams |
+|---|---|---|---|
+| Indodax market | `wss://ws3.indodax.com/ws/` | static public token; Centrifugo (`method` 1=subscribe, 7=ping) | `chart:tick-<pair>`, `market:summary-24h`, `market:trade-activity-<pair>`, `market:order-book-<pair>` |
+| Indodax private | `wss://pws.indodax.com/ws/` | `POST /api/private_ws/v1/generate_token` (HMAC-SHA512) → `{connToken, channel}`, then `connect`+`subscribe` | account order-update events |
+| Tokocrypto market | `wss://stream-cloud.tokocrypto.site/stream` | none; Binance-style `{"method":"SUBSCRIBE","params":[…]}` | `<sym>@aggTrade`, `@trade`, `@kline_<iv>`, `@miniTicker`, `@depth`, `@depth<levels>` |
+| Tokocrypto user | `wss://stream-cloud.tokocrypto.site/stream?streams=<token>` | listen token from `POST /open/v1/user-listen-token` | `outboundAccountPosition`, `executionReport` |
+
+All four verified to connect + hand-shake against production on 2026-09-07
+(Tokocrypto aggTrade messages received live; Indodax auth+subscribe acks
+received).
+
+### F. Mapping to code
 
 `backend/src/tarakdingdung/domain/contracts/api/` — one ABC per surface/concern:
 
 - `indodax/v1/public.py` → `IndodaxV1PublicApi` (§A)
 - `indodax/v1/private.py` → `IndodaxV1PrivateApi` (§B)
 - `indodax/v2/trade.py` → `IndodaxV2TradeApi` (§C)
-- `tokocrypto/v1/market.py` → `TokocryptoV1MarketApi` (§D 1–6)
+- `tokocrypto/v1/market.py` → `TokocryptoV1MarketApi` (§D 1–6, 6b)
 - `tokocrypto/v1/trade.py` → `TokocryptoV1TradeApi` (§D 7–14)
 - `tokocrypto/v1/wallet.py` → `TokocryptoV1WalletApi` (§D 15–18)
-- `tokocrypto/v1/stream.py` → `TokocryptoV1StreamApi` (§D 19)
+- `tokocrypto/v1/stream.py` → `TokocryptoV1StreamApi` (§D 19, listen-token REST)
+- `indodax/v1/market_ws.py` → `IndodaxMarketWebSocket` (§E)
+- `indodax/v1/private_ws.py` → `IndodaxPrivateWebSocket` (§E)
+- `tokocrypto/v1/market_ws.py` → `TokocryptoMarketWebSocket` (§E)
+- `tokocrypto/v1/user_ws.py` → `TokocryptoUserWebSocket` (§E)
 
 `backend/src/tarakdingdung/infrastructure/api/` — `httpx.AsyncClient`-backed
-implementations (`Http*` prefix), with `shared/signing.py` (HMAC helpers) and
-`shared/rest.py` (request + JSON-decode + `DomainError` mapping). Each impl
-unwraps its success envelope (`return` / `data`) and raises `DomainError` on the
-exchange's error shape.
+REST impls (`Http*` prefix) and `websockets`-backed WS impls (`Ws*` prefix),
+with `shared/signing.py` (HMAC helpers), `shared/rest.py` (request +
+JSON-decode + `DomainError` mapping) and `shared/websocket.py`
+(`ReconnectingWebSocket`: capped-backoff reconnect + re-handshake). Each REST
+impl unwraps its success envelope (`return` / `data`) and raises `DomainError`
+on the exchange's error shape.
 
 ## Open questions / gaps
 
