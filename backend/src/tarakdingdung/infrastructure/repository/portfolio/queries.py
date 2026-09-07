@@ -23,7 +23,8 @@ def build_insert_snapshot(portfolio: Portfolio):
     return pg_insert(S).values(
         captured_at=portfolio.timestamp, cash=cash_to_json(portfolio.cash),
         positions=positions_to_json(portfolio.positions), equity=portfolio.equity,
-        balances=balances_to_json(portfolio.balances))
+        balances=balances_to_json(portfolio.balances),
+        equity_by_venue=cash_to_json(portfolio.equity_by_venue))
 
 
 def build_read_latest(as_of: int) -> Select:
@@ -32,22 +33,32 @@ def build_read_latest(as_of: int) -> Select:
 
 
 def build_insert_equity_point(point: EquityPoint):
-    return pg_insert(E).values(captured_at=point.timestamp, equity=point.equity)
+    return pg_insert(E).values(captured_at=point.timestamp, equity=point.equity,
+                               venue=point.venue)
 
 
-def build_read_equity_curve(window: TimeRange) -> Select:
+def _venue_clause(venue: str | None):
+    # NULL is the total series; a name scopes to that venue.
+    return E.venue.is_(None) if venue is None else E.venue == venue
+
+
+def build_read_equity_curve(window: TimeRange, venue: str | None = None) -> Select:
     return (select(E)
-            .where(E.captured_at >= window.start, E.captured_at < window.end)
+            .where(E.captured_at >= window.start, E.captured_at < window.end,
+                   _venue_clause(venue))
             .order_by(E.captured_at.asc()))
 
 
-def build_read_equity_before(as_of: int, *, since: int) -> Select:
-    return (select(E).where(E.captured_at <= as_of, E.captured_at >= since)
+def build_read_equity_before(as_of: int, *, since: int,
+                             venue: str | None = None) -> Select:
+    return (select(E).where(E.captured_at <= as_of, E.captured_at >= since,
+                            _venue_clause(venue))
             .order_by(E.captured_at.asc()))
 
 
-def build_read_equity_peak(as_of: int):
-    return select(func.max(E.equity)).where(E.captured_at <= as_of)
+def build_read_equity_peak(as_of: int, venue: str | None = None):
+    return (select(func.max(E.equity))
+            .where(E.captured_at <= as_of, _venue_clause(venue)))
 
 
 def build_insert_fills(fills: tuple[Fill, ...]):

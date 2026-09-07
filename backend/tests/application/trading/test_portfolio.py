@@ -117,10 +117,40 @@ async def test_an_unreachable_venue_is_distinct_from_an_empty_one():
     assert result.portfolio.positions == {}
 
 
-async def test_sync_records_an_equity_point():
+async def test_sync_records_a_total_and_a_per_venue_equity_point():
     usecase, portfolios = await build(balances={"IDR": Decimal("1000")})
     await usecase.sync(SyncRequest())
-    assert [p.equity for p in portfolios.equity] == [Decimal("1000")]
+    total = [p for p in portfolios.equity if p.venue is None]
+    indodax = [p for p in portfolios.equity if p.venue == "INDODAX"]
+    assert [p.equity for p in total] == [Decimal("1000")]
+    assert [p.equity for p in indodax] == [Decimal("1000")]
+
+
+async def test_read_current_scopes_equity_and_risk_state_to_a_venue():
+    market_data = FakeMarketDataRepository()
+    await market_data.write_price(symbol=BTC, timestamp=TS, price=Decimal("100"))
+    portfolios = FakePortfolioRepository()
+    usecase = PortfolioSyncUsecase(
+        accounts={
+            Venue.INDODAX: StubAccount({"BTC": Decimal("2"), "IDR": Decimal("500")}),
+            Venue.TOKOCRYPTO: StubAccount({"IDR": Decimal("3000000")}),
+        },
+        portfolios=portfolios, market_data=market_data,
+        strategies=FakeStrategyRepository((make_strategy(universe=(BTC,)),)),
+        clock=FakeClock(), logger=NullLogger())
+    await usecase.sync(SyncRequest())
+
+    tkc = await usecase.read_current(Venue.TOKOCRYPTO)
+    # 3,000,000 IDR, no positions.
+    assert tkc.portfolio.equity == Decimal("3000000")
+    assert tkc.portfolio.positions == {}
+    assert list(tkc.portfolio.cash) == []
+    # balances stay whole so the caller can still offer a venue switch.
+    assert set(tkc.portfolio.balances) == {Venue.INDODAX, Venue.TOKOCRYPTO}
+
+    idx = await usecase.read_current(Venue.INDODAX)
+    # 2 BTC @ 100 + 500 IDR.
+    assert idx.portfolio.equity == Decimal("700")
 
 
 async def test_read_current_returns_portfolio_and_risk_state():

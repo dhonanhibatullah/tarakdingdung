@@ -30,17 +30,21 @@ class SqlAlchemyPortfolioRepository(PortfolioRepository):
             row = (await s.execute(q.build_read_latest(as_of))).scalar_one_or_none()
         return portfolio_from_orm(row) if row is not None else None
 
-    async def read_risk_state(self, *, as_of: int) -> RiskState:
+    async def read_risk_state(self, *, as_of: int,
+                              venue: str | None = None) -> RiskState:
         """Derived from the equity curve, never stored separately.
 
         Peak equity, daily P&L and trailing volatility are functions of the
         curve the reports are drawn from. Storing them alongside would let the
         risk overlay and the performance report disagree about the same run.
+
+        ``venue`` None reads the total series the engine sizes against; a name
+        scopes every figure to that venue's own curve.
         """
         async with self._db.session() as s:
-            peak = await s.scalar(q.build_read_equity_peak(as_of))
+            peak = await s.scalar(q.build_read_equity_peak(as_of, venue))
             recent = (await s.execute(q.build_read_equity_before(
-                as_of, since=as_of - _DAY_MS))).scalars().all()
+                as_of, since=as_of - _DAY_MS, venue=venue))).scalars().all()
         equities = [float(row.equity) for row in recent]
         current = Decimal(str(equities[-1])) if equities else Decimal(0)
         opening = Decimal(str(equities[0])) if equities else Decimal(0)
@@ -55,10 +59,11 @@ class SqlAlchemyPortfolioRepository(PortfolioRepository):
             await s.execute(q.build_insert_equity_point(point))
             await self._db.persist(s)
 
-    async def read_equity_curve(self, *, window: TimeRange) -> tuple[EquityPoint, ...]:
+    async def read_equity_curve(self, *, window: TimeRange,
+                                venue: str | None = None) -> tuple[EquityPoint, ...]:
         async with self._db.session() as s:
             rows = (await s.execute(
-                q.build_read_equity_curve(window))).scalars().all()
+                q.build_read_equity_curve(window, venue))).scalars().all()
         return tuple(equity_point_from_orm(r) for r in rows)
 
     async def append_fills(self, fills: tuple[Fill, ...]) -> None:

@@ -293,6 +293,10 @@ class PortfolioResponse(BaseModel):
     # {venue: {asset: amount}}. Informational only — `equity` stays scoped to
     # priced positions plus quote cash, so IDR and USDT are never summed.
     balances: dict[str, dict[str, str]] = {}
+    # Per-venue equity (priced positions on the venue plus its IDR balance).
+    # With ?venue=, `equity` above is the selected venue's figure; this map
+    # keeps every venue so the caller can offer a venue switch.
+    equity_by_venue: dict[str, str] = {}
 
 
 class RiskStateResponse(BaseModel):
@@ -318,7 +322,9 @@ def portfolio_response(portfolio) -> PortfolioResponse:
                    for s, p in portfolio.positions.items()],
         equity=str(portfolio.equity),
         balances={str(venue): {asset: str(amount) for asset, amount in assets.items()}
-                  for venue, assets in portfolio.balances.items()})
+                  for venue, assets in portfolio.balances.items()},
+        equity_by_venue={str(venue): str(amount)
+                         for venue, amount in portfolio.equity_by_venue.items()})
 
 
 def current_portfolio_response(result) -> CurrentPortfolioResponse:

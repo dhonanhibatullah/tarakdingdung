@@ -124,11 +124,14 @@ def balances_from_json(
 def portfolio_from_orm(row: Any) -> Portfolio:
     return Portfolio(timestamp=row.captured_at, cash=cash_from_json(row.cash),
                      positions=positions_from_json(row.positions), equity=row.equity,
-                     balances=balances_from_json(getattr(row, "balances", None)))
+                     balances=balances_from_json(getattr(row, "balances", None)),
+                     equity_by_venue=cash_from_json(
+                         getattr(row, "equity_by_venue", None) or {}))
 
 
 def equity_point_from_orm(row: Any) -> EquityPoint:
-    return EquityPoint(timestamp=row.captured_at, equity=row.equity)
+    return EquityPoint(timestamp=row.captured_at, equity=row.equity,
+                       venue=getattr(row, "venue", None))
 
 
 def fill_from_orm(row: Any) -> Fill:

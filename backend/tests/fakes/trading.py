@@ -206,14 +206,16 @@ class FakePortfolioRepository(PortfolioRepository):
     async def read_latest(self, *, as_of):
         return self.portfolio
 
-    async def read_risk_state(self, *, as_of) -> RiskState:
+    async def read_risk_state(self, *, as_of, venue=None) -> RiskState:
         return self.state
 
     async def write_equity_point(self, point) -> None:
         self.equity.append(point)
 
-    async def read_equity_curve(self, *, window):
-        return tuple(p for p in self.equity if window.start <= p.timestamp < window.end)
+    async def read_equity_curve(self, *, window, venue=None):
+        return tuple(p for p in self.equity
+                     if window.start <= p.timestamp < window.end
+                     and p.venue == venue)
 
     async def append_fills(self, fills) -> None:
         self.fills.extend(fills)

@@ -200,18 +200,29 @@ async def validation_detail(id: UUID,
 
 # ---- Portfolio -------------------------------------------------------------
 
+def _venue(raw: str | None) -> Venue | None:
+    if raw is None:
+        return None
+    try:
+        return Venue(raw.upper())
+    except ValueError as exc:
+        raise DomainError(f"unknown venue {raw!r}", ErrorType.BAD_ARGS) from exc
+
+
 @router.get("/portfolio", response_model=res.CurrentPortfolioResponse,
             dependencies=[Depends(require("portfolio:get"))])
-async def portfolio_current(uc: pf.PortfolioSync = Depends(get_trading_portfolio)):
-    return res.current_portfolio_response(await uc.read_current())
+async def portfolio_current(venue: str | None = Query(default=None),
+                            uc: pf.PortfolioSync = Depends(get_trading_portfolio)):
+    return res.current_portfolio_response(await uc.read_current(_venue(venue)))
 
 
 @router.get("/portfolio/equity", response_model=res.EquityCurveResponse,
             dependencies=[Depends(require("portfolio:get"))])
 async def portfolio_equity(window_start: int, window_end: int,
+                           venue: str | None = Query(default=None),
                            uc: pf.PortfolioSync = Depends(get_trading_portfolio)):
     result = await uc.read_equity_curve(pf.EquityCurveRequest(
-        window=_window(window_start, window_end)))
+        window=_window(window_start, window_end), venue=_venue(venue)))
     return res.EquityCurveResponse(points=[
         res.EquityPointResponse(timestamp=p.timestamp, equity=str(p.equity))
         for p in result.points])

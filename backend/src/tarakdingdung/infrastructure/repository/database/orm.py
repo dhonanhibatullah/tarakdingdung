@@ -185,6 +185,8 @@ class PortfolioSnapshotORM(Base):
     positions: Mapped[list] = mapped_column(JSONB)
     equity: Mapped[Decimal] = mapped_column(Numeric(38, 18))
     balances: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    equity_by_venue: Mapped[dict] = mapped_column(
+        JSONB, server_default=text("'{}'::jsonb"))
 
 
 class EquityPointORM(Base):
@@ -193,6 +195,7 @@ class EquityPointORM(Base):
         PgUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
     captured_at: Mapped[int] = mapped_column(BigInteger)
     equity: Mapped[Decimal] = mapped_column(Numeric(38, 18))
+    venue: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class FillORM(Base):

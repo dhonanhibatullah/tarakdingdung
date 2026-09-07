@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from dataclasses import replace
 from decimal import Decimal
 
 from tarakdingdung.domain.contracts.api.account_source import AccountSource
@@ -54,14 +55,21 @@ class PortfolioSyncUsecase(PortfolioSync):
         equity = sum((p.quantity * prices[p.symbol] for p in positions.values()
                       if p.symbol in prices), Decimal(0))
         equity += sum(cash.values(), Decimal(0))
+        equity_by_venue = self._equity_by_venue(positions, prices, balances)
 
         portfolio = Portfolio(timestamp=now, cash=cash, positions=positions,
-                              equity=equity, balances=balances)
+                              equity=equity, balances=balances,
+                              equity_by_venue=equity_by_venue)
         discrepancies = await self._discrepancies(portfolio, now)
 
         await self._portfolios.write_snapshot(portfolio)
+        # The total series (venue=None) is what the risk overlay reads; the
+        # per-venue points back the portfolio page's venue toggle.
         await self._portfolios.write_equity_point(
             EquityPoint(timestamp=now, equity=equity))
+        for venue, venue_equity in equity_by_venue.items():
+            await self._portfolios.write_equity_point(
+                EquityPoint(timestamp=now, equity=venue_equity, venue=str(venue)))
 
         if discrepancies:
             await self._logger.warn(f"{self._TAG}/Sync", "portfolio discrepancies found",
@@ -69,7 +77,8 @@ class PortfolioSyncUsecase(PortfolioSync):
         return SyncResult(portfolio=portfolio, discrepancies=discrepancies,
                           unreachable=tuple(unreachable))
 
-    async def read_current(self) -> CurrentPortfolioResult:
+    async def read_current(
+            self, venue: Venue | None = None) -> CurrentPortfolioResult:
         now = await self._clock.now_ms()
         portfolio = await self._portfolios.read_latest(as_of=now)
         if portfolio is None:
@@ -77,13 +86,51 @@ class PortfolioSyncUsecase(PortfolioSync):
             await self._logger.error(f"{self._TAG}/ReadCurrent", "failed to read portfolio",
                                      {"err": err})
             raise err
-        return CurrentPortfolioResult(
-            portfolio=portfolio,
-            risk_state=await self._portfolios.read_risk_state(as_of=now))
+        risk_state = await self._portfolios.read_risk_state(
+            as_of=now, venue=str(venue) if venue is not None else None)
+        if venue is not None:
+            portfolio = self._scoped_to_venue(portfolio, venue)
+        return CurrentPortfolioResult(portfolio=portfolio, risk_state=risk_state)
 
     async def read_equity_curve(self, request: EquityCurveRequest) -> EquityCurveResult:
+        venue = request.venue
         return EquityCurveResult(
-            points=await self._portfolios.read_equity_curve(window=request.window))
+            points=await self._portfolios.read_equity_curve(
+                window=request.window,
+                venue=str(venue) if venue is not None else None))
+
+    @staticmethod
+    def _equity_by_venue(positions: Mapping[Symbol, Position],
+                         prices: Mapping[Symbol, Decimal],
+                         balances: Mapping[Venue, Mapping[str, Decimal]],
+                         ) -> dict[Venue, Decimal]:
+        # A venue's equity is its priced positions plus its home-currency (IDR)
+        # balance. Non-IDR balances stay visible but out of the figure, so IDR
+        # and USDT are never summed.
+        out: dict[Venue, Decimal] = {}
+        for venue, assets in balances.items():
+            priced = sum((p.quantity * prices[p.symbol]
+                          for p in positions.values()
+                          if p.symbol.venue == venue and p.symbol in prices),
+                         Decimal(0))
+            out[venue] = priced + assets.get("IDR", Decimal(0))
+        return out
+
+    @staticmethod
+    def _scoped_to_venue(portfolio: Portfolio, venue: Venue) -> Portfolio:
+        # `equity`, `cash` and `positions` narrow to the venue; `balances` and
+        # `equity_by_venue` stay whole so a caller still sees every venue (the
+        # page builds its toggle from them).
+        equity = portfolio.equity_by_venue.get(venue)
+        if equity is None:  # pre-migration snapshot
+            equity = portfolio.balances.get(venue, {}).get("IDR", Decimal(0))
+        return replace(
+            portfolio,
+            equity=equity,
+            cash={v: a for v, a in portfolio.cash.items() if v == venue},
+            positions={s: p for s, p in portfolio.positions.items()
+                       if s.venue == venue},
+        )
 
     async def _balances(self, venues) -> tuple[dict[Venue, Mapping[str, Decimal]], list[Venue]]:
         balances: dict[Venue, Mapping[str, Decimal]] = {}

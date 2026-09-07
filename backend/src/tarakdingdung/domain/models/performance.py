@@ -21,6 +21,9 @@ class Fill:
 class EquityPoint:
     timestamp: int
     equity: Decimal
+    # None is the total equity — the series the risk overlay reads. A venue
+    # name scopes the point to that venue's holdings.
+    venue: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

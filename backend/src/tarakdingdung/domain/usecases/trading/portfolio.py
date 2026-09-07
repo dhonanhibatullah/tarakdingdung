@@ -30,6 +30,8 @@ class CurrentPortfolioResult:
 @dataclass(frozen=True, slots=True)
 class EquityCurveRequest:
     window: TimeRange
+    # None is the total equity series; a venue scopes the curve to that venue.
+    venue: Venue | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +60,8 @@ class PortfolioSync(ABC):
     async def sync(self, request: SyncRequest) -> SyncResult: ...
 
     @abstractmethod
-    async def read_current(self) -> CurrentPortfolioResult: ...
+    async def read_current(
+        self, venue: Venue | None = None) -> CurrentPortfolioResult: ...
 
     @abstractmethod
     async def read_equity_curve(self, request: EquityCurveRequest) -> EquityCurveResult: ...

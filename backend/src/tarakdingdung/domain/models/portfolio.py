@@ -32,6 +32,9 @@ class Portfolio:
     positions: Mapping[Symbol, Position]
     equity: Decimal
     balances: Mapping[Venue, Mapping[str, Decimal]] = field(default_factory=dict)
+    # Per-venue equity (priced positions on the venue plus its home-currency
+    # balance). ``equity`` above stays the engine's strategy-scoped total.
+    equity_by_venue: Mapping[Venue, Decimal] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

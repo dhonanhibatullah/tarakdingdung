@@ -307,6 +307,10 @@ async def test_portfolio_snapshot_round_trips(portfolios):
         balances={
             Venue.INDODAX: {"BTC": Decimal("0.5"), "IDR": Decimal("1234.56")},
             Venue.TOKOCRYPTO: {"USDT": Decimal("300"), "IDR": Decimal("3000000")},
+        },
+        equity_by_venue={
+            Venue.INDODAX: Decimal("51234.56"),
+            Venue.TOKOCRYPTO: Decimal("3000000"),
         })
     await portfolios.write_snapshot(portfolio)
     found = await portfolios.read_latest(as_of=TS)
@@ -316,6 +320,22 @@ async def test_portfolio_snapshot_round_trips(portfolios):
     assert found.balances[Venue.TOKOCRYPTO] == {
         "USDT": Decimal("300"), "IDR": Decimal("3000000")}
     assert found.balances[Venue.INDODAX]["BTC"] == Decimal("0.5")
+    assert found.equity_by_venue[Venue.TOKOCRYPTO] == Decimal("3000000")
+
+
+@pytest.mark.asyncio
+async def test_equity_curve_is_scoped_by_venue(portfolios):
+    await portfolios.write_equity_point(EquityPoint(timestamp=TS, equity=Decimal("100")))
+    await portfolios.write_equity_point(
+        EquityPoint(timestamp=TS, equity=Decimal("40"), venue="INDODAX"))
+    await portfolios.write_equity_point(
+        EquityPoint(timestamp=TS, equity=Decimal("60"), venue="TOKOCRYPTO"))
+    window = TimeRange(start=TS - 1, end=TS + 1)
+
+    total = await portfolios.read_equity_curve(window=window)
+    indodax = await portfolios.read_equity_curve(window=window, venue="INDODAX")
+    assert [p.equity for p in total] == [Decimal("100")]
+    assert [p.equity for p in indodax] == [Decimal("40")]
 
 
 @pytest.mark.asyncio
