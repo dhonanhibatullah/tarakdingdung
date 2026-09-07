@@ -59,8 +59,15 @@ navigation entry.
 ## Status
 
 Auth is wired: httpOnly-cookie sessions, edge token refresh in `src/proxy.ts`,
-per-route permission gating. **Strategies** is fully connected to the backend
-(list, filter, paginate, create, enable/disable, delete, dry-run). The
-**dashboard** still shows sample figures, and `backtests`, `validations`,
-`portfolio`, `market-data`, and `admin/*` are placeholders. See `AGENTS.md`
-for how the auth layer works and how to wire the remaining routes.
+per-route permission gating. Every route except the **dashboard** (still sample
+figures) is connected to the backend:
+
+- **Strategies** — list/filter/paginate, create, enable/disable, delete, dry-run
+- **Backtests** — list, run a backtest, read its performance report
+- **Validations** — run a walk-forward search, look a run up by id
+- **Portfolio** — holdings, risk state, equity curve
+- **Market Data** — candle coverage per symbol/interval/window
+- **Users** — list, create, edit, reset password, delete
+- **Access Control** — role & permission CRUD, per-role permission assignment
+
+See `AGENTS.md` for the auth layer and the per-page wiring pattern.

@@ -109,13 +109,30 @@ Backend contract: all `/api/v1/trading/*` need `Authorization: Bearer <jwt>`;
 
 ## Data
 
-The **dashboard** still renders static sample figures behind a visible "connect
-the engine API" note. **Strategies** is fully wired (list + filters +
-pagination + create / enable-disable / delete / dry-run). The other routes
-(`backtests`, `validations`, `portfolio`, `market-data`, `admin/*`) are still
-placeholders — wire them the same way: a `page.tsx` with
-`requireAnyPermission`, `lib/api/<resource>.ts` for the calls, `_lib/actions.ts`
-for mutations, `_components/` for the view.
+Every route except the **dashboard** (still static sample figures behind a
+"connect the engine API" note) is wired to the backend:
+
+| Route | Reads | Writes |
+| --- | --- | --- |
+| `/strategies` | list + filters + pagination | create / enable-disable / delete / dry-run |
+| `/backtests` | list + strategy filter + pagination | run backtest |
+| `/validations` | look up a run by id | run walk-forward (redirects to `?id=`) — no list endpoint on the backend |
+| `/portfolio` | current holdings, risk state, equity curve (`?days=`) | — |
+| `/market-data` | candle coverage for a symbol/interval/window (filter form) | — |
+| `/admin/users` | list + search + role filter + pagination | create / edit / reset password / delete |
+| `/admin/access-control` | roles + permissions tabs (`?tab=`) | role & permission CRUD, set-default, per-role permission matrix |
+
+Each follows the same shape: `page.tsx` gated by `requireAnyPermission`,
+`lib/api/<resource>.ts` for the calls, `_lib/actions.ts` (`"use server"`) for
+mutations returning an `ActionResult` (`lib/forms/result.ts`), `_components/`
+for the view. Dialogs use `useDialogForm` + `<Modal>`; list pages reuse
+`collection/{FilterBar,Pagination,ResourceCard}`; `error.tsx` is a thin
+`<RouteError>`. Shared value formatting lives in `lib/format.ts`, window math
+in `lib/time-window.ts`.
+
+`lib/forms/result.ts` is deliberately import-free (client components pull
+`INITIAL` from it) — its `fail()` duck-types `ApiError` rather than importing
+the server-only api client.
 
 ## Environment
 
