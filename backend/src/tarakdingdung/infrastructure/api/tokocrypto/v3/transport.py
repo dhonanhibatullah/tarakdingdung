@@ -1,3 +1,8 @@
+"""Shared request/sign plumbing for Binance-standard `/api/v3/*` endpoints.
+
+Responses are raw JSON with no envelope. Signed calls append `&signature=` over
+the encoded query string and send it as the query for every HTTP verb.
+"""
 import time
 from collections.abc import Callable
 from typing import Any
