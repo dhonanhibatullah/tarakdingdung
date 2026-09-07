@@ -2,7 +2,7 @@ from typing import Any
 
 from tarakdingdung.domain.models.error import DomainError, ErrorType
 
-_ERROR_CODE: dict[int, ErrorType] = {
+ERROR_CODE: dict[int, ErrorType] = {
     -1000: ErrorType.UPSTREAM,
     -1001: ErrorType.UPSTREAM,
     -1003: ErrorType.RATE_LIMITED,
@@ -31,5 +31,5 @@ def unwrap(body: Any) -> Any:
     if code in (0, "0"):
         return body.get("data")
     message = body.get("msg") or "tokocrypto request failed"
-    kind = _ERROR_CODE.get(code if isinstance(code, int) else 0, ErrorType.UPSTREAM)
+    kind = ERROR_CODE.get(code if isinstance(code, int) else 0, ErrorType.UPSTREAM)
     raise DomainError(f"tokocrypto [{code}]: {message}", kind)
