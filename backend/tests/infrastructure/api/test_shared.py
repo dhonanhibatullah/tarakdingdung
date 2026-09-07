@@ -62,3 +62,31 @@ async def test_rest_client_returns_decoded_json():
 
     rest = RestClient(_client(handler), base_url="https://x.test", tag="t")
     assert await rest.request("GET", "/ping") == {"ok": 1}
+
+
+@pytest.mark.asyncio
+async def test_rest_client_uses_the_error_mapper_when_given_one():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(418, text='{"code":-1121,"msg":"Invalid symbol."}')
+
+    def mapper(status: int, body: str) -> DomainError:
+        assert status == 418 and "Invalid symbol." in body
+        return DomainError("mapped it", ErrorType.BAD_ARGS)
+
+    rest = RestClient(_client(handler), base_url="https://x.test", tag="t",
+                      error_mapper=mapper)
+    with pytest.raises(DomainError) as ei:
+        await rest.request("GET", "/ping")
+    assert ei.value.type is ErrorType.BAD_ARGS
+    assert ei.value.message == "mapped it"
+
+
+@pytest.mark.asyncio
+async def test_rest_client_without_a_mapper_is_unchanged():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, text="plain")
+
+    rest = RestClient(_client(handler), base_url="https://x.test", tag="t")
+    with pytest.raises(DomainError) as ei:
+        await rest.request("GET", "/ping")
+    assert ei.value.type is ErrorType.BAD_ARGS  # from _STATUS_ERROR[400]

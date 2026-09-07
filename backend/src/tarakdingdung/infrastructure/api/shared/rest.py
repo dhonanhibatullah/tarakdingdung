@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlencode
 
@@ -36,10 +37,12 @@ class RestClient:
     Exchange-specific success/error envelopes are handled by the callers.
     """
 
-    def __init__(self, client: httpx.AsyncClient, *, base_url: str, tag: str) -> None:
+    def __init__(self, client: httpx.AsyncClient, *, base_url: str, tag: str,
+                 error_mapper: Callable[[int, str], DomainError] | None = None) -> None:
         self._client = client
         self._base_url = base_url.rstrip("/")
         self._tag = tag
+        self._error_mapper = error_mapper
 
     async def request(self, method: str, path: str, *, query: str | None = None,
                       body: str | None = None,
@@ -57,6 +60,8 @@ class RestClient:
             raise DomainError(f"{self._tag} request failed", ErrorType.UPSTREAM, exc) from exc
 
         if response.status_code >= 400:
+            if self._error_mapper is not None:
+                raise self._error_mapper(response.status_code, response.text)
             kind = _STATUS_ERROR.get(response.status_code, ErrorType.UPSTREAM)
             raise DomainError(
                 f"{self._tag} responded HTTP {response.status_code}: {response.text[:200]}",
