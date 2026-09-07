@@ -289,6 +289,7 @@ class FakeExecutor(Executor):
         self.fail_cancel = fail_cancel
         self.submitted: list[PlannedOrder] = []
         self.cancelled: list[tuple[Symbol, ...]] = []
+        self.looked_up: list[tuple[str, object]] = []
         self.known: dict[str, ExecutionResult] = {}
         self._journal = journal
 
@@ -314,9 +315,10 @@ class FakeExecutor(Executor):
             raise DomainError("cancel failed", ErrorType.UPSTREAM)
         self.cancelled.append(tuple(symbols))
 
-    async def read_by_client_order_id(self, client_order_id) -> ExecutionResult:
+    async def read_by_client_order_id(self, client_order_id, *, symbol=None) -> ExecutionResult:
         if self._journal is not None:
             self._journal.events.append("reconcile")
+        self.looked_up.append((client_order_id, symbol))
         return self.known.get(
             client_order_id,
             ExecutionResult(accepted=(), rejected=(), unconfirmed=(), fills=()))

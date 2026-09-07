@@ -100,7 +100,7 @@ async def test_reconciliation_runs_before_anything_is_planned():
 
 async def test_a_failed_reconciliation_does_not_stop_the_cycle():
     class Failing(FakeExecutor):
-        async def read_by_client_order_id(self, client_order_id):
+        async def read_by_client_order_id(self, client_order_id, *, symbol=None):
             raise DomainError("venue down", ErrorType.UPSTREAM)
 
     ctx = Ctx()
@@ -110,6 +110,14 @@ async def test_a_failed_reconciliation_does_not_stop_the_cycle():
     result = await ctx.run()
     assert result.decision is CycleDecision.TRADED
     assert result.reconciled == 0
+
+
+async def test_reconcile_passes_the_symbol_to_the_executor():
+    # Binance order lookup needs a symbol; the journal entry carries it.
+    ctx = Ctx(cycle_plan=plan(orders=()))
+    ctx.journal.unreconciled = [order()]
+    await ctx.run()
+    assert ctx.executor.looked_up == [("tdd0000000000001", BTC)]
 
 
 # --- halting ----------------------------------------------------------------

@@ -61,7 +61,8 @@ class RoutingExecutor(Executor):
         if failures:
             raise failures[0]
 
-    async def read_by_client_order_id(self, client_order_id: str) -> ExecutionResult:
+    async def read_by_client_order_id(self, client_order_id: str, *,
+                                      symbol: Symbol | None = None) -> ExecutionResult:
         raise DomainError("reconcile through the venue executor that placed the order",
                           ErrorType.UNIMPLEMENTED)
 

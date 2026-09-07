@@ -163,7 +163,8 @@ class TradingEngineUsecase(TradingEngine):
             if order.client_order_id is None:
                 continue
             try:
-                found = await executor.read_by_client_order_id(order.client_order_id)
+                found = await executor.read_by_client_order_id(
+                    order.client_order_id, symbol=order.symbol)
             except DomainError as err:
                 await self._logger.warn(f"{self._TAG}/Reconcile", "failed to reconcile order",
                                         {"err": err, "client_order_id": order.client_order_id})

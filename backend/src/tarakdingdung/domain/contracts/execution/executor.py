@@ -36,6 +36,13 @@ class Executor(ABC):
         ...
 
     @abstractmethod
-    async def read_by_client_order_id(self, client_order_id: str) -> ExecutionResult:
-        """Reconciliation path for an unconfirmed submission."""
+    async def read_by_client_order_id(
+        self, client_order_id: str, *, symbol: Symbol | None = None
+    ) -> ExecutionResult:
+        """Reconciliation path for an unconfirmed submission.
+
+        ``symbol`` is optional because not every venue needs it: Indodax and
+        Tokocrypto v3 look an order up by market, while the paper executor
+        ignores it. The engine always passes the symbol from the journal.
+        """
         ...

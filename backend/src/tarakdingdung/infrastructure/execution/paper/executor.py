@@ -72,7 +72,8 @@ class PaperExecutor(Executor):
         # Paper orders fill or reject immediately, so nothing ever rests.
         return None
 
-    async def read_by_client_order_id(self, client_order_id: str) -> ExecutionResult:
+    async def read_by_client_order_id(self, client_order_id: str, *,
+                                      symbol: Symbol | None = None) -> ExecutionResult:
         return ExecutionResult(accepted=(), rejected=(), unconfirmed=(), fills=())
 
     @staticmethod

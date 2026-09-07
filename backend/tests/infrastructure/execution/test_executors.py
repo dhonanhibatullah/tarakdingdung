@@ -161,6 +161,8 @@ async def test_indodax_lookup_is_refused_rather_than_guessed():
     with pytest.raises(DomainError) as e:
         await executor.read_by_client_order_id("tdd1")
     assert e.value.type is ErrorType.UNIMPLEMENTED
+    with pytest.raises(DomainError):
+        await executor.read_by_client_order_id("tdd1", symbol=IDX)
 
 
 # --- routing ----------------------------------------------------------------

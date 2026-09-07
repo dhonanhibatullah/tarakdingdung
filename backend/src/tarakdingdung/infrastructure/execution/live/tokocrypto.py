@@ -65,7 +65,8 @@ class TokocryptoLiveExecutor(Executor):
                     await self._trade.cancel_order(order_id=_int(entry.get("orderId")),
                                                    client_id=entry.get("clientId"))
 
-    async def read_by_client_order_id(self, client_order_id: str) -> ExecutionResult:
+    async def read_by_client_order_id(self, client_order_id: str, *,
+                                      symbol: Symbol | None = None) -> ExecutionResult:
         try:
             payload = await self._trade.query_order(client_id=client_order_id)
         except DomainError as err:

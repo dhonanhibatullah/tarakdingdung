@@ -72,7 +72,8 @@ class IndodaxLiveExecutor(Executor):
                     order_id=_int(entry.get("order_id")),
                     client_order_id=entry.get("client_order_id"))
 
-    async def read_by_client_order_id(self, client_order_id: str) -> ExecutionResult:
+    async def read_by_client_order_id(self, client_order_id: str, *,
+                                      symbol: Symbol | None = None) -> ExecutionResult:
         raise DomainError(
             "indodax order lookup requires a symbol; reconcile through the "
             "journal, which records it alongside the client order id",
