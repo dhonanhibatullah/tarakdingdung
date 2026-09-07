@@ -110,3 +110,45 @@ async def test_v3_market_depth_and_exchange_info_hit_their_paths():
     api2 = HttpTokocryptoV3MarketApi(cap.client(httpx.Response(200, json={"symbols": []})))
     await api2.exchange_info()
     assert cap.request.url.path == "/api/v3/exchangeInfo"
+
+
+from tarakdingdung.infrastructure.api.tokocrypto.v3.trade import HttpTokocryptoV3TradeApi
+
+
+async def test_v3_trade_create_order_maps_snake_to_camel_and_defaults_full_resp():
+    cap = _Capture()
+    api = HttpTokocryptoV3TradeApi(
+        cap.client(httpx.Response(200, json={"orderId": 7, "fills": []})),
+        api_key="mbx", secret_key="sec", now_ms=_FIXED_NOW)
+    out = await api.create_order(symbol="BTCIDR", side="BUY", type="LIMIT",
+                                 quantity="1", price="1000",
+                                 time_in_force="GTC", new_client_order_id="tdd1")
+    assert out == {"orderId": 7, "fills": []}
+    q = cap.request.url.query.decode()
+    assert cap.request.method == "POST"
+    assert cap.request.url.path == "/api/v3/order"
+    assert "symbol=BTCIDR" in q and "side=BUY" in q and "type=LIMIT" in q
+    assert "newClientOrderId=tdd1" in q and "newOrderRespType=FULL" in q
+    assert "timeInForce=GTC" in q
+    assert "&signature=" in q
+
+
+async def test_v3_trade_account_is_signed():
+    cap = _Capture()
+    api = HttpTokocryptoV3TradeApi(
+        cap.client(httpx.Response(200, json={"balances": []})),
+        api_key="mbx", secret_key="sec", now_ms=_FIXED_NOW)
+    assert await api.account() == {"balances": []}
+    assert cap.request.url.path == "/api/v3/account"
+    assert cap.request.headers["X-MBX-APIKEY"] == "mbx"
+    assert "&signature=" in cap.request.url.query.decode()
+
+
+async def test_v3_trade_query_order_uses_orig_client_order_id():
+    cap = _Capture()
+    api = HttpTokocryptoV3TradeApi(
+        cap.client(httpx.Response(200, json={"status": "FILLED"})),
+        api_key="mbx", secret_key="sec", now_ms=_FIXED_NOW)
+    await api.query_order(symbol="BTCIDR", orig_client_order_id="tdd1")
+    assert cap.request.method == "GET"
+    assert "origClientOrderId=tdd1" in cap.request.url.query.decode()
