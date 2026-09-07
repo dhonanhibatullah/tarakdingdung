@@ -7,15 +7,19 @@ system relies on.
 """
 
 from decimal import Decimal
+from uuid import uuid4
 
 from tarakdingdung.domain.contracts.algorithm.allocation import Allocator
 from tarakdingdung.domain.contracts.algorithm.cost import CostModel
+from tarakdingdung.domain.contracts.algorithm.cycle import CyclePlanner
 from tarakdingdung.domain.contracts.algorithm.order import OrderPlanner
 from tarakdingdung.domain.contracts.algorithm.risk import RiskRule
 from tarakdingdung.domain.models.algorithm import (
     OrderType, PlannedOrder, Side, Signals, TargetWeights, TimeInForce, TradeIntent,
 )
-from tarakdingdung.domain.models.market import BookLevel, OrderBook, Symbol, SymbolRules, Venue
+from tarakdingdung.domain.models.market import (
+    BookLevel, MarketSnapshot, OrderBook, Symbol, SymbolRules, Venue,
+)
 from tarakdingdung.domain.models.portfolio import Portfolio, Position, RiskState
 
 TS = 1_757_000_000_000
@@ -201,3 +205,51 @@ def assert_order_planner_conforms(planner: OrderPlanner) -> None:
 
     assert planner.plan((), known).orders == ()
     assert planner.plan((), known).rejected == ()
+
+
+# --- CyclePlanner -----------------------------------------------------------
+
+_CYCLE_RULES = {s: rules(s) for s in ALL_SYMBOLS}
+
+
+def _cycle_snapshot(candles_by_symbol) -> MarketSnapshot:
+    return MarketSnapshot(
+        timestamp=TS, candles=candles_by_symbol,
+        books={s: book(s) for s in candles_by_symbol},
+        last_prices={s: Decimal("100") for s in candles_by_symbol})
+
+
+def assert_cycle_planner_conforms(planner: CyclePlanner, snapshot: MarketSnapshot) -> None:
+    strategy_id = uuid4()
+    book_ = portfolio(equity="10000", positions=[position(BTC_IDX, "10")])
+
+    plan = planner.plan(strategy_id=strategy_id, snapshot=snapshot,
+                        portfolio=book_, state=risk_state(), rules=_CYCLE_RULES)
+
+    assert plan.timestamp == snapshot.timestamp
+    # Same inputs, same plan — including ids, which is what makes reconciling
+    # an unconfirmed submission safe rather than a way to double a position.
+    again = planner.plan(strategy_id=strategy_id, snapshot=snapshot,
+                         portfolio=book_, state=risk_state(), rules=_CYCLE_RULES)
+    assert [o.client_order_id for o in plan.orders.orders] == [
+        o.client_order_id for o in again.orders.orders]
+    assert plan.weights.weights == again.weights.weights
+
+    # Every planned order is identified; an anonymous order cannot be
+    # reconciled with the venue.
+    for order in plan.orders.orders:
+        assert order.client_order_id
+
+
+def assert_cycle_planner_halts(planner: CyclePlanner, snapshot: MarketSnapshot) -> None:
+    """Only for planners carrying a halting rule."""
+    book_ = portfolio(equity="10000", positions=[position(BTC_IDX, "10")])
+    plan = planner.plan(strategy_id=uuid4(), snapshot=snapshot, portfolio=book_,
+                        state=risk_state(halted=True), rules=_CYCLE_RULES)
+
+    assert plan.is_halted
+    assert plan.halted_by
+    assert plan.weights.weights == {}
+    # A halt liquidates rather than freezing: holding nothing means selling
+    # what is held.
+    assert any(o.side is Side.SELL for o in plan.orders.orders)

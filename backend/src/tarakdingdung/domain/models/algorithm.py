@@ -164,6 +164,29 @@ class OrderPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class CyclePlan:
+    """Everything one decision cycle concluded, before anything is submitted.
+
+    Produced identically by the live engine and the backtester — they differ
+    only in where the snapshot came from and what happens to the orders
+    afterwards, which is what keeps the two from drifting apart.
+
+    ``halted_by`` names the first risk rule that flattened the book. Note that
+    a halt still produces exit orders: empty target weights mean hold nothing,
+    so the rebalancer sells what is held rather than merely declining to buy.
+    """
+
+    timestamp: int
+    weights: TargetWeights
+    orders: OrderPlan
+    halted_by: str | None = None
+
+    @property
+    def is_halted(self) -> bool:
+        return self.halted_by is not None
+
+
+@dataclass(frozen=True, slots=True)
 class CostEstimate:
     """What an order really costs against a given book.
 
