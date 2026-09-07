@@ -16,6 +16,7 @@ dependencies = [
     "pydantic-settings",
     "pyjwt",
     "bcrypt",
+    "httpx",
 ]
 
 [project.scripts]
