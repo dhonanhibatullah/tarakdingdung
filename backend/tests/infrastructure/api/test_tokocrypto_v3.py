@@ -77,3 +77,36 @@ async def test_v3_transport_maps_a_binance_error_body():
     with pytest.raises(DomainError) as ei:
         await t.public_get("/api/v3/depth", symbol="NOPE")
     assert ei.value.type is ErrorType.BAD_ARGS
+
+
+from tarakdingdung.infrastructure.api.tokocrypto.v3.market import HttpTokocryptoV3MarketApi
+
+
+async def test_v3_market_klines_passes_params_and_returns_the_array():
+    cap = _Capture()
+    api = HttpTokocryptoV3MarketApi(
+        cap.client(httpx.Response(200, json=[[1, "1", "2", "0.5", "1.5", "10"]])))
+    rows = await api.klines(symbol="BTCIDR", interval="1h", limit=2)
+    assert rows == [[1, "1", "2", "0.5", "1.5", "10"]]
+    assert cap.request.url.path == "/api/v3/klines"
+    assert cap.request.url.params["symbol"] == "BTCIDR"
+    assert cap.request.url.params["interval"] == "1h"
+    assert cap.request.url.params["limit"] == "2"
+
+
+async def test_v3_market_ticker_price_returns_the_object():
+    cap = _Capture()
+    api = HttpTokocryptoV3MarketApi(
+        cap.client(httpx.Response(200, json={"symbol": "BTCIDR", "price": "1397.00"})))
+    assert await api.ticker_price(symbol="BTCIDR") == {"symbol": "BTCIDR", "price": "1397.00"}
+    assert cap.request.url.path == "/api/v3/ticker/price"
+
+
+async def test_v3_market_depth_and_exchange_info_hit_their_paths():
+    cap = _Capture()
+    api = HttpTokocryptoV3MarketApi(cap.client(httpx.Response(200, json={"bids": [], "asks": []})))
+    await api.depth(symbol="BTCIDR", limit=5)
+    assert cap.request.url.path == "/api/v3/depth"
+    api2 = HttpTokocryptoV3MarketApi(cap.client(httpx.Response(200, json={"symbols": []})))
+    await api2.exchange_info()
+    assert cap.request.url.path == "/api/v3/exchangeInfo"
