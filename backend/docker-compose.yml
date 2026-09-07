@@ -11,12 +11,11 @@ x-backend: &backend
   env_file:
     - .env
   environment:
-    # The container always binds 0.0.0.0:8080 internally, whatever .env says.
-    # TRDD_BE_HTTP_PORT in .env selects only the *host-published* port (the
-    # left side of the mapping below); overriding it here keeps uvicorn, the
-    # port mapping and the healthcheck agreed on 8080 inside the container.
+    # Bind on all interfaces inside the container, not on whatever the host
+    # uses. TRDD_BE_HTTP_PORT (from .env) is the single knob for the port:
+    # uvicorn binds it, and the mapping + healthcheck below both interpolate
+    # the same value, so container and host port always match.
     TRDD_BE_HTTP_HOST: 0.0.0.0
-    TRDD_BE_HTTP_PORT: "8080"
   extra_hosts:
     # Lets TRDD_BE_POSTGRES_HOST=host.docker.internal reach a database running
     # on the host itself. A LAN address needs nothing extra; 127.0.0.1 would
@@ -28,9 +27,9 @@ services:
     <<: *backend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}:${TRDD_BE_HTTP_PORT:-8080}"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/version"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}/api/version"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -7,23 +7,30 @@
 
 ## Resolution
 
-Adopted the "container always binds 8080 internally; `TRDD_BE_HTTP_PORT`
-selects only the host-published port" convention.
+Made `TRDD_BE_HTTP_PORT` (from `.env`) the single source of truth for the
+port — no override, and every place that needs the port interpolates the same
+value.
 
-- `docker-compose.yml` `x-backend.environment:` now sets
-  `TRDD_BE_HTTP_PORT: "8080"` (alongside the existing `TRDD_BE_HTTP_HOST:
-  0.0.0.0`), so `env_file`'s value is overridden for the process. uvicorn, the
-  `ports:` right side, the compose healthcheck and `EXPOSE` now all agree on
-  8080 inside the container. `ports: "127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}:8080"`
-  is unchanged — its left side still reads `TRDD_BE_HTTP_PORT` from the shell /
-  `.env`, so the host-published port stays configurable.
-- `.env.example` gains a comment noting that under compose `TRDD_BE_HTTP_PORT`
-  is the host-published port only.
+- `docker-compose.yml`:
+  - `ports: "127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}:${TRDD_BE_HTTP_PORT:-8080}"`
+    — both sides interpolated, so the container port and the published host
+    port always match.
+  - `healthcheck.test` → `http://127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}/api/version`
+    — compose substitutes the value at parse time (confirmed via
+    `docker compose config`).
+  - the `environment:` block keeps only `TRDD_BE_HTTP_HOST: 0.0.0.0`; the port
+    is no longer overridden there.
+- `Dockerfile` `EXPOSE 8080` is left as-is — it is informational only
+  (`EXPOSE` publishes nothing), and its `HEALTHCHECK` already uses
+  `${TRDD_BE_HTTP_PORT:-8080}`, so a bare `docker run -e TRDD_BE_HTTP_PORT=X
+  -p X:X` works too.
+- `.env.example` comment updated to say this is the only place the HTTP port
+  is set.
 
-**Verified:** `docker compose up -d backend` → `healthy` in ~9s; host
-`127.0.0.1:18888` (the `.env` value) → container `:8080` → reachable
-(`GET /api/version` → `v0.1.0-dev.1`). `docker compose run --rm seeder` also
-works.
+**Verified:** `docker compose config` shows `${TRDD_BE_HTTP_PORT}` resolved to
+`18888` in both the mapping (`18888:18888`) and the healthcheck.
+`docker compose up -d backend` → `healthy` in ~9s; host `127.0.0.1:18888` →
+`GET /api/version` → `v0.1.0-dev.1`. Seeder works.
 
 ---
 
