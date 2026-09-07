@@ -6,7 +6,7 @@ here with strikethrough and a reason.
 
 | #   | File | Description |
 |-----|------|-------------|
-| 001 | `001_Indodax_Official_API_Documentation.md` | Indodax official API repo (btcid): Public REST, Private REST/"tapi" Trade API 2.0, Market/Private WebSocket, Deadman Switch. Auth (HMAC SHA512), rate limits, order types, April 2026 deprecations. |
+| 001 | `001_Indodax_Official_API_Documentation.md` | Indodax official API repo (btcid): Public REST, Private WebSocket, Deadman Switch, and the two non-interchangeable private trade surfaces — legacy v1 `/tapi` (HMAC-SHA512, `Key` header, deprecation-bound) and **TAPI v2** (`api.indodax.com`, HMAC-SHA256, `X-APIKEY`, RESTful `/api/v2/*`, IP allowlist mandatory). Wrong key version → `-2015`/`invalid_version_key`. Both tested working 2026-09-07. |
 | 002 | `002_Tokocrypto_API_Documentation.md` | Tokocrypto (Binance-owned) API docs: Binance-compatible spot REST `/open/v1/*`, `X-MBX-APIKEY` + HMAC SHA256, weight-based rate limits, OCO, WebSocket streams, 2026 status/changelog. |
 | 003 | `003_Fintech_News_Indonesia_Top_Licensed_Crypto_Exchanges_2026.md` | Trade-press ranking of 6 OJK-licensed Indonesian crypto exchanges (Indodax, Tokocrypto, Pintu, Reku, Pluang, FLOQ). Bappebti→OJK timeline (Jan 2025), March 2026 whitelist. No API detail. |
 | 004 | `004_Liminal_Custody_Indonesia_Crypto_Regulation_Tax_Guide_2026.md` | Regulatory + tax structure: Bappebti→OJK, CFX national exchange, PAKD licensing, 0.21% PPh final withholding on CFX-connected exchanges vs 1% offshore. |

@@ -3,7 +3,7 @@
 - **Question:** Which Indonesia-accessible broker(s) should tarakdingdung use to
   study and execute automated trading — most trustworthy, best API experience —
   covering (a) IDX / local stocks and (b) crypto? Separate providers are fine.
-- **Last updated:** 2026-09-06
+- **Last updated:** 2026-09-07
 - **Status:** draft
 - **Topic tags:** broker-selection, api, crypto, idx, equities, indonesia, indodax, tokocrypto, alpaca, regulation, security
 
@@ -21,7 +21,11 @@
   liquidity (ref 001, ref 003), but it suffered a **~US$22–25M hot-wallet /
   withdrawal-system breach in Sep 2024** (users reimbursed) — so treat it as a
   trading venue with elevated custody risk: keep minimal balances, `view`+`trade`
-  API keys only, never `withdraw` (ref 005).
+  API keys only, never `withdraw` (ref 005). Build the Indodax adapter against
+  **TAPI v2** (`api.indodax.com`, HMAC-SHA256, `X-APIKEY`), not the legacy v1
+  `/tapi` — v1 is on a decommissioning path and a v2 key is rejected there with
+  `invalid_version_key`. Both v1 and v2 keys were tested working for this
+  project on 2026-09-07 (ref 001).
 - **IDX / local stocks — there is no trustworthy official execution API.** No
   Indonesian retail stock broker (Stockbit/Sinarmas, Ajaib, IPOT/Indo Premier,
   Mirae HOTS, Phillip/POEMS-ID) publishes an order-execution API. The only way
@@ -88,15 +92,36 @@ ref 008).
 
 ### Crypto option B — Indodax (recommended secondary / IDR depth)
 
-- **API (ref 001):** genuinely **official and documented** — Public REST
-  (`/api/*`, 180 req/min, no auth), Private "tapi" (`POST https://indodax.com/tapi`,
-  **HMAC SHA512**, `Key`/`Sign` headers, per-key `view`/`trade`/`withdraw`
-  permissions), Market Data + Private WebSocket, and a **Deadman Switch**
-  (auto-cancel on disconnect — useful for a bot losing connectivity).
-- **Order model (ref 001):** `trade` method with `limit` / `market` / `stoplimit`;
-  `GTC`/`MOC` TIF; client order IDs (dedupe); self-trade prevention. Cancel by
-  order ID or client ID. Rate limits: 20 req/s per account+pair (5 s block on
-  breach), 30 req/s for cancels.
+- **API (ref 001):** genuinely **official and documented**. Two private trade
+  surfaces exist and are **not interchangeable** — an API key is bound to one
+  version at creation, and using it against the other returns HTTP 403
+  `code -2015` / `invalid_version_key`:
+  - **Legacy "tapi" / v1** — `POST https://indodax.com/tapi`, **HMAC SHA512**,
+    `Key`/`Sign` headers, `method=` param style. Repo says it "will be
+    deprecated and decommissioned in a future release" and users are "strongly
+    encouraged to migrate."
+  - **TAPI v2 (use this)** — `https://api.indodax.com`, Binance-style RESTful
+    (`GET /api/v2/account`, `POST /api/v2/order`, `DELETE /api/v2/order`,
+    `GET /api/v2/openOrders`, `GET /api/v2/myTrades`, …), **HMAC SHA256** over
+    the query string (+ body for POST), headers `X-APIKEY` + `Sign` +
+    `Accept: application/json`. Needs a **dedicated v2 key** from
+    `https://indodax.com/trade_api`; **IP allowlist mandatory** for
+    trade/withdraw perms. Rate limits 300 req/min general, 50 req/min for
+    capital endpoints, plus 20 req/s per user per pair on order create/cancel.
+  - Also: Public REST (`/api/*`, 180 req/min, no auth), Market Data + Private
+    WebSocket, and a **Deadman Switch** (auto-cancel on disconnect).
+- **Both surfaces tested working for this project (2026-09-07)** from egress IP
+  `118.99.94.221` (on the key allowlist): v1 `getInfo` and v2
+  `GET /api/v2/account` both return balances; the v2 key reports
+  `canTrade=true, canWithdraw=false`. **Build the Indodax adapter against v2** —
+  it's the supported path and its HMAC-SHA256 / `X-APIKEY` shape matches the
+  Tokocrypto client. Keep the v1 key only as a fallback. `ccxt`'s `indodax`
+  module still targets v1 `/tapi`, so a v2 adapter is likely hand-rolled.
+- **Order model (ref 001):** v1 `trade` method with `limit` / `market` /
+  `stoplimit`; v2 `POST /api/v2/order` with `LIMIT` / `MARKET`, `side`
+  `BUY`/`SELL`, `quoteOrderQty` for MARKET BUY. Both: `GTC` (default) / `MOC`
+  TIF; client order IDs (dedupe, ≤36 chars); self-trade prevention
+  (`EXPIRE_MAKER` default on v2). Cancel by order ID or client ID.
 - **Strengths:** deepest IDR order books and pair count among local exchanges
   (ref 003); the Deadman Switch is a real operational safety feature; fully
   sanctioned API means no ToS risk.
@@ -106,9 +131,10 @@ ref 008).
   the bar for how much capital you park there. Mitigate: keep only working
   balance on-exchange, sweep profits out on a schedule, issue API keys with
   **no withdraw permission**, IP-allowlist, and rotate keys.
-- **Migration note (ref 001):** `tradeHistory` / `orderHistory` "tapi" methods
-  were deprecated 2026-04-07 → use `GET /api/v2/myTrades` and
-  `GET /api/v2/order/histories`.
+- **Migration note (ref 001):** on legacy v1, `tradeHistory` / `orderHistory`
+  "tapi" methods were deprecated 2026-04-07 → use `GET /api/v2/myTrades` and
+  `GET /api/v2/order/histories`. More broadly, the whole v1 `/tapi` endpoint is
+  slated for decommissioning (date TBA) — start on v2.
 
 ### IDX / local stocks — the gap
 
@@ -164,6 +190,12 @@ ref 008).
   news only.)
 - **ccxt coverage:** verify current `ccxt` support status/quality for both
   `indodax` and `tokocrypto` unified methods (fetchOHLCV, createOrder, watchers).
+  Note `ccxt`'s `indodax` still targets the **v1** `/tapi` surface — check
+  whether any release has added Indodax **TAPI v2** before relying on it; a
+  hand-rolled v2 client is the likely path.
+- **Indodax v1 decommission date:** the repo says v1 `/tapi` will be shut down
+  "in a future release (date announced in advance)" — track the CHANGELOG so the
+  v2 migration lands before the cutoff.
 - **Latency / colocation:** typical REST + WebSocket round-trip from an
   Indonesian/SEA VPS to each venue — matters if the strategy is intraday.
 - **IDX execution, future:** whether any local broker (or a fintech like Ajaib/
