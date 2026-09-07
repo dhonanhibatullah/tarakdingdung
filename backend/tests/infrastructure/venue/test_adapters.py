@@ -139,12 +139,12 @@ async def test_indodax_balances_drop_zeroes():
 
 # --- tokocrypto -------------------------------------------------------------
 
-class StubTokocryptoMarket:
+class StubTokocryptoV3Market:
     def __init__(self, **payloads) -> None:
         self.payloads = payloads
         self.calls: dict[str, object] = {}
 
-    async def klines(self, *, symbol, interval, limit=None, **kw):
+    async def klines(self, *, symbol, interval, start_time=None, end_time=None, limit=None):
         self.calls["klines"] = (symbol, interval, limit)
         return self.payloads.get("klines", [])
 
@@ -152,17 +152,18 @@ class StubTokocryptoMarket:
         self.calls["depth"] = symbol
         return self.payloads.get("depth", {})
 
-    async def symbols(self):
-        return self.payloads.get("symbols", [])
+    async def ticker_price(self, *, symbol):
+        self.calls["ticker_price"] = symbol
+        return self.payloads.get("ticker_price", {})
+
+    async def exchange_info(self, *, symbol=None, symbols=None):
+        return self.payloads.get("exchange_info", {"symbols": []})
 
     async def server_time(self): ...
-    async def trades(self, **kw): ...
-    async def agg_trades(self, **kw): ...
-    async def execution_rules(self, **kw): ...
 
 
 def tokocrypto(**payloads):
-    stub = StubTokocryptoMarket(**payloads)
+    stub = StubTokocryptoV3Market(**payloads)
     return TokocryptoMarketDataSource(market=stub, clock=FakeClock()), stub
 
 
@@ -171,36 +172,53 @@ async def test_tokocrypto_parses_binance_kline_arrays():
     candles = await source.fetch_candles(symbol=TKO, interval="1h", limit=1)
     assert candles[0].open_time == 1_757_000_000_000
     assert candles[0].high == Decimal("2")
-    assert stub.calls["klines"][0] == "BTC_USDT"
+    assert stub.calls["klines"][0] == "BTCUSDT"
 
 
-async def test_tokocrypto_price_uses_the_latest_close():
-    source, _ = tokocrypto(klines=[[1, "1", "2", "0.5", "9.75", "10"]])
+async def test_tokocrypto_book_maps_bids_and_asks():
+    source, stub = tokocrypto(depth={"bids": [["100", "1"]], "asks": [["101", "2"]]})
+    book = await source.fetch_book(symbol=TKO, limit=10)
+    assert book.bids[0].price == Decimal("100")
+    assert book.asks[0].quantity == Decimal("2")
+    assert stub.calls["depth"] == "BTCUSDT"
+
+
+async def test_tokocrypto_price_reads_the_ticker():
+    source, stub = tokocrypto(ticker_price={"symbol": "BTCUSDT", "price": "9.75"})
     assert await source.fetch_price(symbol=TKO) == Decimal("9.75")
+    assert stub.calls["ticker_price"] == "BTCUSDT"
 
 
-async def test_tokocrypto_price_raises_when_there_is_no_recent_trade():
-    source, _ = tokocrypto(klines=[])
+async def test_tokocrypto_price_raises_when_the_ticker_has_no_price():
+    source, _ = tokocrypto(ticker_price={"symbol": "BTCUSDT"})
     with pytest.raises(DomainError) as e:
         await source.fetch_price(symbol=TKO)
     assert e.value.type is ErrorType.UPSTREAM
 
 
 async def test_tokocrypto_rules_read_the_binance_filters():
-    source, _ = tokocrypto(symbols=[{
+    source, _ = tokocrypto(exchange_info={"symbols": [{
         "baseAsset": "BTC", "quoteAsset": "USDT",
         "filters": [{"filterType": "PRICE_FILTER", "tickSize": "0.01"},
                     {"filterType": "LOT_SIZE", "stepSize": "0.0001"},
-                    {"filterType": "MIN_NOTIONAL", "minNotional": "10"}]}])
+                    {"filterType": "NOTIONAL", "minNotional": "10"}]}]})
     rules = await source.fetch_rules()
     assert rules[TKO].tick_size == Decimal("0.01")
     assert rules[TKO].step_size == Decimal("0.0001")
     assert rules[TKO].min_notional == Decimal("10")
 
 
+async def test_tokocrypto_rules_accept_the_legacy_min_notional_filter():
+    source, _ = tokocrypto(exchange_info={"symbols": [{
+        "baseAsset": "BTC", "quoteAsset": "USDT",
+        "filters": [{"filterType": "MIN_NOTIONAL", "minNotional": "5"}]}]})
+    rules = await source.fetch_rules()
+    assert rules[TKO].min_notional == Decimal("5")
+
+
 async def test_tokocrypto_rules_survive_a_missing_filter():
-    source, _ = tokocrypto(symbols=[{"baseAsset": "BTC", "quoteAsset": "USDT",
-                                     "filters": []}])
+    source, _ = tokocrypto(exchange_info={"symbols": [
+        {"baseAsset": "BTC", "quoteAsset": "USDT", "filters": []}]})
     rules = await source.fetch_rules()
     assert rules[TKO].tick_size == Decimal(0)
 
@@ -208,8 +226,8 @@ async def test_tokocrypto_rules_survive_a_missing_filter():
 async def test_tokocrypto_balances_drop_zeroes():
     class StubTrade:
         async def account(self):
-            return {"accountAssets": [{"asset": "BTC", "free": "2"},
-                                      {"asset": "ETH", "free": "0"}]}
+            return {"balances": [{"asset": "BTC", "free": "2", "locked": "0"},
+                                 {"asset": "ETH", "free": "0", "locked": "0"}]}
 
     balances = await TokocryptoAccountSource(trade=StubTrade()).fetch_balances()
     assert balances == {"BTC": Decimal("2")}
