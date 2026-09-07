@@ -44,8 +44,25 @@ permissions. So this is not a signing bug in `TokocryptoV3Transport`.
   machine that ran the probe *is* on `118.99.94.221` (confirmed via
   `api.ipify.org` / `ifconfig.me` / `icanhazip.com`, all agreeing). Not an IP
   problem.
-- **Permissions.** The account owner confirms the key has **read and trade**
-  enabled.
+- **Permissions.** Confirmed: `canTrade=1`, `canWithdraw=1`, `canDeposit=1`.
+- **Clock drift.** Container-vs-venue skew measured at **10 ms** (`recvWindow`
+  is 5000 ms). Not a drift problem.
+
+### Confirmed root cause (2026-09-07)
+
+A signed `GET /open/v1/account/spot` against **`www.tokocrypto.com`** with the
+same `.env` credentials **succeeds**: `auth OK`, 653 assets (1 non-zero),
+`makerCommission`/`takerCommission` `0.00150000`, `canTrade=1`.
+
+So the key is **fully valid and trade-enabled — but only on Tokocrypto's
+legacy `/open/v1` system**. It is not recognised on the Binance-standard
+`www.tokocrypto.site` `/api/v3` host, which is what this session's migration
+pointed the signed client at. Diagnosis 2a is confirmed; the v3 migration's
+"trade + account on `/api/v3`" scope was wrong for this account.
+
+> **Security note:** this key has **withdraw enabled** (`canWithdraw=1`). The
+> intended scope was view + trade only. Regenerate it withdraw-disabled
+> regardless of which path below is taken.
 
 ### Therefore
 
@@ -63,39 +80,51 @@ The v3 client (this session's migration) talks to `www.tokocrypto.site`
 signed `/api/v3` call is `-2015` even with a perfect IP and permissions —
 which is exactly the symptom.
 
-## Next steps (for the operator)
+## What to do
 
-1. **Prove the key is alive on the legacy host.** Run a signed
-   `GET /open/v1/account/spot` against `www.tokocrypto.com` with the same
-   `.env` credentials (the repo still has `HttpTokocryptoV1TradeApi`, unwired).
-   - **Balances come back** → the key is valid but scoped to `/open/v1` only.
-     The account is not on the Binance-standard signed API. Go to step 2a.
-   - **Also `-2015` / an auth error** → the key/secret pair itself is
-     wrong (revoked, typo, or the *secret* was mangled when pasted into
-     `.env` — a wrong secret usually gives `-1022`, a wrong key `-2015`).
-     Regenerate the key in the Tokocrypto dashboard, re-paste both halves
-     with no surrounding whitespace, retry.
-2. Depending on step 1:
-   - **2a — key works only on `/open/v1`:** check the Tokocrypto API
-     management page for a separate "Binance API" / "Standard API" key
-     section. If one exists, generate a key there and use it for the v3
-     client. If it does **not** exist, this account cannot use the
-     Binance-standard signed API at all → the pragmatic fix is a **scoped
-     partial revert**: keep Tokocrypto *market data* on `.site/api/v3` (works
-     unauthenticated) but move Tokocrypto *account + trading* back onto the
-     signed `/open/v1` client. ~1 file of composition rewiring; the
-     `/open/v1` clients were deliberately kept in the tree for this.
-   - **2b — a Binance-standard key is obtained:** put it in `.env`
-     (`TRDD_BE_TOKOCRYPTO_API_KEY` / `_SECRET_KEY`), re-run the probe.
-3. Once signed reads work on whichever host: place one supervised,
-   minimum-size live order to finally exercise `TokocryptoLiveExecutor`
-   against the real API.
+**Step 1 done** — the legacy-host probe confirmed the key works on
+`/open/v1`. Two viable paths from here; pick one.
 
-### Clock drift (cheap to rule out while you're here)
+### Path A — get a Binance-standard API key (best if the account supports it)
 
-`-2015` is not the drift code, but if step 1 is inconclusive, compare the
-container clock to the venue: `GET /api/v3/time` vs `date +%s%3N`. A skew
-beyond `recvWindow` (5000 ms) would normally surface as `-1021`, not `-2015`.
+In the Tokocrypto app / website API management page, look for a **separate
+"Binance API" / "Standard API"** key section (distinct from the one the
+current key came from).
+
+- **If it exists:** generate a key there (read + spot trade, IP `118.99.94.221`,
+  **no withdraw**), put it in `.env` as `TRDD_BE_TOKOCRYPTO_API_KEY` /
+  `_SECRET_KEY`, re-run the `/api/v3/account` probe. The v3 code is already
+  done — nothing else to change.
+- **If it does not exist:** this account is legacy-only for signed calls →
+  take Path B.
+
+### Path B — scoped partial revert (works with the key you already have)
+
+Split the Tokocrypto wiring by what each host actually serves:
+
+| Concern | Host | Client |
+|---|---|---|
+| Market data (candles / depth / rules) | `www.tokocrypto.site` `/api/v3/*` | `HttpTokocryptoV3MarketApi` — **keep** (this is what fixed the dead-klines bug) |
+| Account balances + signed trading | `www.tokocrypto.com` `/open/v1/*` | `HttpTokocryptoV1TradeApi` — **restore** |
+
+Work involved (all `/open/v1` clients were deliberately kept in the tree):
+
+- restore `venue/tokocrypto/account.py` and `execution/live/tokocrypto.py` to
+  their `/open/v1` forms (git: state at `d18ca62`, before commits `acf5813` /
+  `462d09f`) — int enums, `{code,msg,data}` envelope, `BTC_USDT` symbols;
+- rewire `composition/main/exchanges.py`: `TokocryptoAccountSource` and
+  `TokocryptoLiveExecutor` take `HttpTokocryptoV1TradeApi`,
+  `TokocryptoMarketDataSource` keeps `HttpTokocryptoV3MarketApi`;
+- the v3 `tokocrypto/v3/trade.py` contract + client stay in the tree, unused
+  (same as `/open/v1` is today).
+
+~3 files. This is the fix if Path A has no key to offer.
+
+### Then (either path)
+
+Regenerate the API key **withdraw-disabled**, then place one supervised,
+minimum-size live order to finally exercise the signed trading path against
+the real API.
 
 ## Note
 
