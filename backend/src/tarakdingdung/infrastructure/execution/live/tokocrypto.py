@@ -75,6 +75,7 @@ class TokocryptoLiveExecutor(Executor):
             for entry in resting or []:
                 await self._trade.cancel_order(
                     symbol=joined_upper(symbol),
+                    order_id=entry.get("orderId"),
                     orig_client_order_id=entry.get("clientOrderId"))
 
     async def read_by_client_order_id(self, client_order_id: str, *,
@@ -95,30 +96,50 @@ class TokocryptoLiveExecutor(Executor):
         return _EMPTY
 
     async def _create(self, order: PlannedOrder, client_order_id: str) -> dict:
+        # Binance rejects `timeInForce` on anything but a plain LIMIT order
+        # (-1106), so it is only sent for OrderType.LIMIT.
+        time_in_force: str | None = None
+        if order.type is OrderType.LIMIT:
+            if order.time_in_force is TimeInForce.GTX:
+                raise DomainError(
+                    "tokocrypto v3 has no timeInForce for GTX; use "
+                    "OrderType.LIMIT_MAKER",
+                    ErrorType.BAD_ARGS)
+            time_in_force = _TIME_IN_FORCE.get(order.time_in_force)
         return await self._trade.create_order(
             symbol=joined_upper(order.symbol), side=_SIDES[order.side],
             type=_TYPES[order.type], quantity=str(order.quantity),
             price=str(order.price) if order.price is not None else None,
-            time_in_force=_TIME_IN_FORCE.get(order.time_in_force),
+            time_in_force=time_in_force,
             new_client_order_id=client_order_id, new_order_resp_type="FULL")
 
     async def _fills(self, order: PlannedOrder, payload: dict) -> list[Fill]:
-        timestamp = int(payload.get("transactTime") or 0)
+        try:
+            timestamp = int(payload.get("transactTime") or 0)
+        except (TypeError, ValueError):
+            timestamp = 0
         quote = order.symbol.quote.upper()
         out: list[Fill] = []
         for entry in payload.get("fills") or []:
-            asset = (entry.get("commissionAsset") or "").upper()
-            if asset and asset != quote:
-                await self._logger.warn(
-                    f"{self._TAG}/Submit", "fee charged in a foreign asset",
-                    {"client_order_id": order.client_order_id,
-                     "commission_asset": asset, "quote": quote})
-            fee = (to_decimal(entry.get("commission"), "commission", venue=_VENUE,
-                              default=Decimal(0))
-                   if asset == quote else Decimal(0))
-            out.append(Fill(
-                symbol=order.symbol, side=order.side,
-                quantity=to_decimal(entry.get("qty"), "fill qty", venue=_VENUE),
-                price=to_decimal(entry.get("price"), "fill price", venue=_VENUE),
-                fee=fee, timestamp=timestamp))
+            try:
+                asset = (entry.get("commissionAsset") or "").upper()
+                if asset != quote:
+                    await self._logger.warn(
+                        f"{self._TAG}/Submit", "fee charged in a foreign asset",
+                        {"client_order_id": order.client_order_id,
+                         "commission_asset": asset, "quote": quote})
+                fee = (to_decimal(entry.get("commission"), "commission", venue=_VENUE,
+                                  default=Decimal(0))
+                       if asset == quote else Decimal(0))
+                fill = Fill(
+                    symbol=order.symbol, side=order.side,
+                    quantity=to_decimal(entry.get("qty"), "fill qty", venue=_VENUE),
+                    price=to_decimal(entry.get("price"), "fill price", venue=_VENUE),
+                    fee=fee, timestamp=timestamp)
+            except (DomainError, ValueError, TypeError) as err:
+                await self._logger.error(
+                    f"{self._TAG}/Submit", "unparseable fill row",
+                    {"client_order_id": order.client_order_id, "err": err})
+                continue
+            out.append(fill)
         return out

@@ -17,7 +17,7 @@ class TokocryptoAccountSource(AccountSource):
     async def fetch_balances(self) -> Mapping[str, Decimal]:
         payload = await self._trade.account()
         balances = {}
-        for entry in payload.get("balances") or payload.get("accountAssets") or []:
+        for entry in payload.get("balances") or []:
             asset = (entry.get("asset") or "").upper()
             if not asset:
                 continue

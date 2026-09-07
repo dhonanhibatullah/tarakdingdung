@@ -12,10 +12,12 @@ from tarakdingdung.domain.models.error import DomainError, ErrorType
 from tarakdingdung.infrastructure.api.tokocrypto.errors import ERROR_CODE
 
 _STATUS_FALLBACK: dict[int, ErrorType] = {
+    400: ErrorType.BAD_ARGS,
     401: ErrorType.UNAUTHORIZED,
-    403: ErrorType.UNAUTHORIZED,
+    403: ErrorType.FORBIDDEN,
     404: ErrorType.NOT_FOUND,
     408: ErrorType.TIMEOUT,
+    422: ErrorType.BAD_ARGS,
     429: ErrorType.RATE_LIMITED,
 }
 

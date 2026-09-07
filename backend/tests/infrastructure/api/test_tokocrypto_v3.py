@@ -23,8 +23,21 @@ def test_map_v3_error_falls_back_to_status_when_body_is_opaque():
     assert map_v3_error(500, "boom").type is ErrorType.UPSTREAM
 
 
-def test_map_v3_error_unknown_code_is_upstream():
-    assert map_v3_error(400, '{"code":-9999,"msg":"nope"}').type is ErrorType.UPSTREAM
+def test_map_v3_error_unknown_code_falls_back_to_status():
+    # An unmapped code on a 5xx is genuinely unconfirmed...
+    assert map_v3_error(500, '{"code":-9999,"msg":"nope"}').type is ErrorType.UPSTREAM
+    # ...but an unmapped code on a 400 is still a venue verdict: the request
+    # was well-formed enough to reach the matching engine and be rejected.
+    assert map_v3_error(400, '{"code":-99999,"msg":"x"}').type is ErrorType.BAD_ARGS
+
+
+def test_map_v3_error_maps_an_order_filter_rejection():
+    err = map_v3_error(400, '{"code":-1013,"msg":"Filter failure: MIN_NOTIONAL"}')
+    assert err.type is ErrorType.BAD_ARGS
+
+
+def test_map_v3_error_403_is_forbidden_like_the_minus_2015_code():
+    assert map_v3_error(403, "nope").type is ErrorType.FORBIDDEN
 
 
 _FIXED_NOW = lambda: 1_700_000_000_000
@@ -86,12 +99,15 @@ async def test_v3_market_klines_passes_params_and_returns_the_array():
     cap = _Capture()
     api = HttpTokocryptoV3MarketApi(
         cap.client(httpx.Response(200, json=[[1, "1", "2", "0.5", "1.5", "10"]])))
-    rows = await api.klines(symbol="BTCIDR", interval="1h", limit=2)
+    rows = await api.klines(symbol="BTCIDR", interval="1h", start_time=1000,
+                            end_time=2000, limit=2)
     assert rows == [[1, "1", "2", "0.5", "1.5", "10"]]
     assert cap.request.url.path == "/api/v3/klines"
     assert cap.request.url.params["symbol"] == "BTCIDR"
     assert cap.request.url.params["interval"] == "1h"
     assert cap.request.url.params["limit"] == "2"
+    q = cap.request.url.query.decode()
+    assert "startTime=1000" in q and "endTime=2000" in q
 
 
 async def test_v3_market_ticker_price_returns_the_object():

@@ -41,8 +41,9 @@ class Executor(ABC):
     ) -> ExecutionResult:
         """Reconciliation path for an unconfirmed submission.
 
-        ``symbol`` is optional because not every venue needs it: Indodax and
-        Tokocrypto v3 look an order up by market, while the paper executor
-        ignores it. The engine always passes the symbol from the journal.
+        ``symbol`` is optional because not every venue needs it: Tokocrypto v3
+        looks an order up by market, the paper executor ignores it, and Indodax
+        could use it but currently raises ``UNIMPLEMENTED`` (deferred). The
+        engine always passes the symbol from the journal.
         """
         ...

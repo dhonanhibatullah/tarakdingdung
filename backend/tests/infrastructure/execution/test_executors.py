@@ -282,6 +282,72 @@ async def test_tko_fee_in_a_foreign_asset_is_recorded_as_zero():
     assert recorded and "foreign asset" in recorded[0]
 
 
+async def test_tko_a_garbage_fill_row_is_skipped_without_losing_the_ack():
+    # A single unparseable fill row must not sink the whole submission: the
+    # order is live at the venue and needs its journal record.
+    executor, _ = tko_live(create={
+        "orderId": 5, "transactTime": 1_757_000_000_123,
+        "fills": [{"price": "100.0", "qty": "0.4", "commission": "0.04",
+                   "commissionAsset": "USDT"},
+                  {"price": "not-a-number", "qty": "1", "commissionAsset": "USDT"}]})
+    result = await executor.submit((order(TKO),))
+    assert len(result.accepted) == 1
+    assert len(result.fills) == 1
+    assert str(result.fills[0].price) == "100.0"
+
+
+async def test_tko_a_non_numeric_transact_time_does_not_sink_the_submit():
+    executor, _ = tko_live(create={
+        "orderId": 6, "transactTime": "oops",
+        "fills": [{"price": "100.0", "qty": "1", "commission": "0.01",
+                   "commissionAsset": "USDT"}]})
+    result = await executor.submit((order(TKO),))
+    assert len(result.accepted) == 1
+    assert result.fills[0].timestamp == 0
+
+
+async def test_tko_market_order_sends_no_time_in_force():
+    executor, stub = tko_live()
+    market = PlannedOrder(symbol=TKO, side=Side.BUY, type=OrderType.MARKET,
+                          quantity=Decimal("1"), price=None,
+                          time_in_force=TimeInForce.GTC, client_order_id="tdd9")
+    await executor.submit((market,))
+    assert stub.created[0]["time_in_force"] is None
+
+
+async def test_tko_limit_gtx_is_refused_with_bad_args():
+    executor, _ = tko_live()
+    gtx = PlannedOrder(symbol=TKO, side=Side.BUY, type=OrderType.LIMIT,
+                       quantity=Decimal("1"), price=Decimal("100"),
+                       time_in_force=TimeInForce.GTX, client_order_id="tdd9")
+    result = await executor.submit((gtx,))
+    assert len(result.rejected) == 1
+    assert "GTX" in result.rejected[0].reason
+
+
+async def test_tko_cancel_all_carries_the_order_id_when_no_client_id():
+    executor, stub = tko_live(resting=[{"orderId": 77}])
+    await executor.cancel_all((TKO,))
+    assert stub.cancelled[0]["order_id"] == 77
+    assert stub.cancelled[0]["orig_client_order_id"] is None
+
+
+async def test_tko_missing_commission_asset_still_warns():
+    recorded: list[str] = []
+
+    class Rec(NullLogger):
+        async def warn(self, tag, message, meta):
+            recorded.append(message)
+
+    stub = StubTokocryptoV3Trade(create={
+        "orderId": 7, "transactTime": 1,
+        "fills": [{"price": "100", "qty": "1"}]})
+    executor = TokocryptoLiveExecutor(trade=stub, logger=Rec())
+    result = await executor.submit((order(TKO),))
+    assert result.fills[0].fee == Decimal(0)
+    assert recorded and "foreign asset" in recorded[0]
+
+
 async def test_tko_resting_limit_has_no_fills_but_is_accepted():
     executor, _ = tko_live(create={"orderId": 8, "transactTime": 1, "fills": []})
     result = await executor.submit((order(TKO),))
