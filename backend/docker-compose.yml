@@ -32,7 +32,13 @@ services:
     <<: *backend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}:${TRDD_BE_HTTP_PORT:-8080}"
+      # TRDD_BE_BIND_HOST is the interface the port is published on. Default
+      # 127.0.0.1 keeps the API reachable only from this host. Set it to a LAN
+      # or tailnet address (e.g. 192.168.18.18) — or 0.0.0.0 for any interface
+      # — in .env when another machine or a separate container stack (the
+      # frontend) needs to reach it. The API requires JWT auth, but the login
+      # endpoint is then exposed, and cron trading runs against real keys.
+      - "${TRDD_BE_BIND_HOST:-127.0.0.1}:${TRDD_BE_HTTP_PORT:-8080}:${TRDD_BE_HTTP_PORT:-8080}"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:${TRDD_BE_HTTP_PORT:-8080}/api/version"]
       interval: 30s
