@@ -1,0 +1,22 @@
+# Deps and build output are produced fresh inside the image.
+node_modules
+.next
+out
+build
+
+# Never bake real env into the image; the compose file passes .env at run time.
+.env
+.env.*
+!.env.example
+
+.git
+.gitignore
+.DS_Store
+*.log
+
+Dockerfile
+docker-compose.yml
+.dockerignore
+README.md
+AGENTS.md
+e2e

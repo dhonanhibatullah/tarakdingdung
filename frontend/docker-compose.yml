@@ -1,0 +1,27 @@
+name: tarakdingdung-frontend
+
+# Runs the built frontend only. It reaches the backend over the network at
+# TRDD_FE_API_BASE_URL — point that at the backend host/port, e.g.
+# http://host.docker.internal:8888 for a backend running on the host.
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tarakdingdung-frontend:latest
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Bind inside the container; the published port below is what the host
+      # actually reaches.
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    ports:
+      - "127.0.0.1:${TRDD_FE_HTTP_PORT:-3000}:3000"
+    extra_hosts:
+      # Lets TRDD_FE_API_BASE_URL=http://host.docker.internal:8888 reach a
+      # backend on the host. A LAN address needs nothing extra.
+      - "host.docker.internal:host-gateway"
