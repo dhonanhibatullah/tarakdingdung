@@ -3,32 +3,10 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from tarakdingdung.domain.models.error import DomainError, ErrorType
+from tarakdingdung.domain.models.market import TimeRange
 from tarakdingdung.domain.models.performance import (
     OverfittingReport, PerformanceReport, TrialResult,
 )
-
-
-@dataclass(frozen=True, slots=True)
-class TimeRange:
-    """A half-open window in epoch milliseconds, ``start`` inclusive.
-
-    Validated because a reversed window selects nothing rather than failing,
-    which would report a backtest over no data as an empty success.
-    """
-
-    start: int
-    end: int
-
-    def __post_init__(self) -> None:
-        if self.start >= self.end:
-            raise DomainError(
-                f"time range must advance, got start={self.start} end={self.end}",
-                ErrorType.VALIDATION)
-
-    @property
-    def duration(self) -> int:
-        return self.end - self.start
 
 
 @dataclass(frozen=True, slots=True)

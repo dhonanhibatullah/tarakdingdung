@@ -3,6 +3,30 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
 
+from tarakdingdung.domain.models.error import DomainError, ErrorType
+
+
+@dataclass(frozen=True, slots=True)
+class TimeRange:
+    """A half-open window in epoch milliseconds, ``start`` inclusive.
+
+    Validated because a reversed window selects nothing rather than failing,
+    which would report a query over no data as an empty success.
+    """
+
+    start: int
+    end: int
+
+    def __post_init__(self) -> None:
+        if self.start >= self.end:
+            raise DomainError(
+                f"time range must advance, got start={self.start} end={self.end}",
+                ErrorType.VALIDATION)
+
+    @property
+    def duration(self) -> int:
+        return self.end - self.start
+
 
 class Venue(StrEnum):
     INDODAX = "INDODAX"
@@ -88,3 +112,26 @@ class MarketSnapshot:
     candles: Mapping[Symbol, tuple[Candle, ...]]
     books: Mapping[Symbol, OrderBook]
     last_prices: Mapping[Symbol, Decimal]
+
+
+@dataclass(frozen=True, slots=True)
+class Coverage:
+    """What history actually holds for one symbol over one window.
+
+    A backtest over gapped history invents flat periods and reports a Sharpe
+    for a strategy that never traded. Nothing sells clean history for these
+    venues and we accumulate our own, so gaps are likely rather than
+    hypothetical — which is why coverage is a query a caller must be able to
+    ask before trusting a window, not an internal detail of the collector.
+    """
+
+    symbol: Symbol
+    interval: str
+    window: TimeRange
+    expected: int
+    present: int
+    gaps: tuple[TimeRange, ...]
+
+    @property
+    def completeness(self) -> float:
+        return self.present / self.expected if self.expected > 0 else 0.0
