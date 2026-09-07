@@ -1,7 +1,7 @@
 # 005 — `prices` and `order_books` grow unbounded (INSERT, not upsert; no retention)
 
 - **Severity:** low
-- **Status:** done (fixed 2026-09-07 — commit `<pending>`)
+- **Status:** done (fixed 2026-09-07 — commit `e3a01f4`)
 - **Detected:** 2026-09-07
 - **Area:** `application/trading/collection/`, `infrastructure/repository/market_data/queries.py`
 

@@ -1,7 +1,7 @@
 # 008 — compose built a separate image per service, so rebuilds left services on stale code
 
 - **Severity:** medium
-- **Status:** done (fixed 2026-09-07 — commit `<pending>`)
+- **Status:** done (fixed 2026-09-07 — commit `e3a01f4`)
 - **Detected:** 2026-09-07, while verifying the migration for `005`
 - **Area:** `backend/docker-compose.yml`
 

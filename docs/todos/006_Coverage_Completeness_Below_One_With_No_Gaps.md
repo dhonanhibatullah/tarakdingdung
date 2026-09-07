@@ -1,7 +1,7 @@
 # 006 — `GET /trading/coverage` reports `completeness < 1.0` with an empty `gaps` list
 
 - **Severity:** low
-- **Status:** done (fixed 2026-09-07 — commit `<pending>`)
+- **Status:** done (fixed 2026-09-07 — commit `e3a01f4`)
 - **Detected:** 2026-09-07
 - **Area:** `infrastructure/repository/market_data/repository.py` (`read_coverage`, `_gaps`, `_step`)
 

@@ -1,7 +1,7 @@
 # 004 — PAPER trading through the cron engine is not a real simulation
 
 - **Severity:** medium
-- **Status:** done (fixed 2026-09-07 — commit `<pending>`)
+- **Status:** done (fixed 2026-09-07 — commit `e3a01f4`)
 - **Detected:** 2026-09-07, one live engine cycle on a PAPER strategy
 - **Area:** `application/trading/engine/`, `application/trading/portfolio/`, `fills` schema
 
