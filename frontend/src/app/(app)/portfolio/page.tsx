@@ -22,7 +22,7 @@ import WindowFilter from "./_components/WindowFilter";
 
 export const metadata: Metadata = {
   title: "Portfolio — Tarakdingdung",
-  description: "Holdings and equity across every venue.",
+  description: "Holdings and equity per venue.",
 };
 
 interface PortfolioPageProps {
@@ -30,6 +30,12 @@ interface PortfolioPageProps {
 }
 
 const DAY_OPTIONS = [7, 30, 90] as const;
+
+function isSoftError(error: unknown): boolean {
+  return (
+    error instanceof ApiError && (error.status === 404 || error.status >= 500)
+  );
+}
 
 export default async function PortfolioPage({
   searchParams,
@@ -40,17 +46,14 @@ export default async function PortfolioPage({
   const requestedVenue = firstQueryValue(raw.venue)?.toUpperCase();
   const win = windowFromDays(days);
 
-  let current: CurrentPortfolioResponse | null = null;
-  let equity: EquityCurveResponse = { points: [] };
+  // One unscoped read to learn the venue list, then everything is fetched
+  // scoped to the active venue so the whole page follows the toggle.
+  let overview: CurrentPortfolioResponse | null = null;
   let loadError: string | null = null;
-
   try {
-    [current, equity] = await Promise.all([
-      getCurrentPortfolio(),
-      getEquityCurve(win.start, win.end).catch(() => ({ points: [] })),
-    ]);
+    overview = await getCurrentPortfolio();
   } catch (error) {
-    if (error instanceof ApiError && (error.status === 404 || error.status >= 500)) {
+    if (isSoftError(error)) {
       loadError =
         "No portfolio snapshot yet. It appears after the engine runs its first sync.";
     } else {
@@ -58,27 +61,54 @@ export default async function PortfolioPage({
     }
   }
 
-  const balances = current?.portfolio.balances ?? {};
-  const venues = Object.keys(balances).length
-    ? Object.keys(balances).sort()
-    : Object.keys(current?.portfolio.cash ?? {}).sort();
+  const venues = overview
+    ? (Object.keys(overview.portfolio.equity_by_venue).length
+        ? Object.keys(overview.portfolio.equity_by_venue)
+        : Object.keys(overview.portfolio.balances)
+      ).sort()
+    : [];
   const activeVenue =
     requestedVenue && venues.includes(requestedVenue)
       ? requestedVenue
       : (venues[0] ?? "");
-  const venueAssets = Object.entries(balances[activeVenue] ?? {}).sort(
-    ([a], [b]) => a.localeCompare(b),
-  );
+
+  let current = overview;
+  let equity: EquityCurveResponse = { points: [] };
+  if (overview && activeVenue) {
+    try {
+      [current, equity] = await Promise.all([
+        getCurrentPortfolio(activeVenue),
+        getEquityCurve(win.start, win.end, activeVenue).catch(() => ({
+          points: [],
+        })),
+      ]);
+    } catch (error) {
+      if (!isSoftError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  const venueAssets = current
+    ? Object.entries(current.portfolio.balances[activeVenue] ?? {}).sort(
+        ([a], [b]) => a.localeCompare(b),
+      )
+    : [];
   const venuePositions =
     current?.portfolio.positions.filter(
-      (pos) => pos.symbol.venue === activeVenue,
+      (pos) => !activeVenue || pos.symbol.venue === activeVenue,
     ) ?? [];
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Portfolio"
-        description="Holdings and equity across every venue, from the latest sync."
+        description="Equity, holdings and history for one venue at a time."
+        actions={
+          venues.length > 1 ? (
+            <VenueSelect venues={venues} active={activeVenue} days={days} />
+          ) : undefined
+        }
       />
 
       {loadError || !current ? (
@@ -86,7 +116,10 @@ export default async function PortfolioPage({
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Metric label="Equity" value={formatNumber(current.portfolio.equity)} />
+            <Metric
+              label={`Equity${activeVenue ? ` · ${activeVenue}` : ""}`}
+              value={formatNumber(current.portfolio.equity)}
+            />
             <Metric
               label="Equity peak"
               value={formatNumber(current.risk_state.equity_peak)}
@@ -104,7 +137,7 @@ export default async function PortfolioPage({
           <Card className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-primary text-lg tracking-wide">
-                Equity curve
+                Equity curve{activeVenue ? ` · ${activeVenue}` : ""}
               </h2>
               <div className="flex items-center gap-3">
                 {current.risk_state.halted ? (
@@ -124,13 +157,6 @@ export default async function PortfolioPage({
               Last sync {formatTimestamp(current.portfolio.timestamp)}
             </p>
           </Card>
-
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-primary text-xl tracking-wide">
-              {activeVenue || "Venue"} holdings
-            </h2>
-            <VenueSelect venues={venues} active={activeVenue} days={days} />
-          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Card className="space-y-3">
@@ -156,8 +182,8 @@ export default async function PortfolioPage({
                 </p>
               )}
               <p className="text-muted-foreground text-xs">
-                Free balance the venue reported. Only priced positions plus
-                quote cash feed the equity figure above.
+                Free balance the venue reported. Equity counts priced positions
+                plus the IDR balance — other currencies stay out of it.
               </p>
             </Card>
 
@@ -201,7 +227,7 @@ export default async function PortfolioPage({
                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm">
-                  No open positions on {activeVenue}.
+                  No open positions{activeVenue ? ` on ${activeVenue}` : ""}.
                 </p>
               )}
             </Card>

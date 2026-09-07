@@ -20,10 +20,16 @@ export interface PortfolioResponse {
   equity: string;
   /**
    * Per-asset free balance of every reachable venue at the last sync, keyed
-   * `{ venue: { asset: amount } }`. Informational — `equity` stays scoped to
-   * priced positions plus quote cash, so IDR and USDT are never summed.
+   * `{ venue: { asset: amount } }`. Kept whole even under `?venue=` so the page
+   * can build its venue switch.
    */
   balances: Record<string, Record<string, string>>;
+  /**
+   * Per-venue equity (priced positions on the venue plus its IDR balance).
+   * Under `?venue=`, `equity` above is that venue's figure; this map still
+   * lists every venue.
+   */
+  equity_by_venue: Record<string, string>;
 }
 
 export interface RiskStateResponse {
@@ -48,18 +54,22 @@ export interface EquityCurveResponse {
   points: EquityPointResponse[];
 }
 
-export async function getCurrentPortfolio(): Promise<CurrentPortfolioResponse> {
-  return apiFetch("/trading/portfolio");
+export async function getCurrentPortfolio(
+  venue?: string,
+): Promise<CurrentPortfolioResponse> {
+  return apiFetch(`/trading/portfolio${buildQuery({ venue })}`);
 }
 
 export async function getEquityCurve(
   windowStart: number,
   windowEnd: number,
+  venue?: string,
 ): Promise<EquityCurveResponse> {
   return apiFetch(
     `/trading/portfolio/equity${buildQuery({
       window_start: windowStart,
       window_end: windowEnd,
+      venue,
     })}`,
   );
 }
