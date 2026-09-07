@@ -56,7 +56,7 @@ class PortfolioSyncUsecase(PortfolioSync):
         equity += sum(cash.values(), Decimal(0))
 
         portfolio = Portfolio(timestamp=now, cash=cash, positions=positions,
-                              equity=equity)
+                              equity=equity, balances=balances)
         discrepancies = await self._discrepancies(portfolio, now)
 
         await self._portfolios.write_snapshot(portfolio)

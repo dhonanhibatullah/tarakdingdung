@@ -47,6 +47,45 @@ async def test_builds_a_portfolio_from_venue_balances():
     assert result.portfolio.equity == Decimal("700")
 
 
+async def test_balances_carry_every_reachable_venue_even_without_a_strategy():
+    market_data = FakeMarketDataRepository()
+    await market_data.write_price(symbol=BTC, timestamp=TS, price=Decimal("100"))
+    usecase = PortfolioSyncUsecase(
+        accounts={
+            Venue.INDODAX: StubAccount({"BTC": Decimal("2"), "IDR": Decimal("500")}),
+            Venue.TOKOCRYPTO: StubAccount(
+                {"USDT": Decimal("300"), "IDR": Decimal("3000000")}),
+        },
+        portfolios=FakePortfolioRepository(), market_data=market_data,
+        strategies=FakeStrategyRepository((make_strategy(universe=(BTC,)),)),
+        clock=FakeClock(), logger=NullLogger())
+    result = await usecase.sync(SyncRequest())
+
+    # Tokocrypto has no symbol in any enabled strategy: absent from the
+    # strategy-scoped cash, present in full under balances.
+    assert Venue.TOKOCRYPTO not in result.portfolio.cash
+    assert result.portfolio.balances[Venue.TOKOCRYPTO] == {
+        "USDT": Decimal("300"), "IDR": Decimal("3000000")}
+    assert result.portfolio.balances[Venue.INDODAX] == {
+        "BTC": Decimal("2"), "IDR": Decimal("500")}
+    # Equity is unchanged: 2 BTC @ 100 + 500 IDR, no USDT folded in.
+    assert result.portfolio.equity == Decimal("700")
+
+
+async def test_an_unreachable_venue_is_absent_from_balances():
+    usecase = PortfolioSyncUsecase(
+        accounts={
+            Venue.INDODAX: StubAccount({"IDR": Decimal("500")}),
+            Venue.TOKOCRYPTO: StubAccount(fail=True),
+        },
+        portfolios=FakePortfolioRepository(), market_data=FakeMarketDataRepository(),
+        strategies=FakeStrategyRepository((make_strategy(universe=(BTC,)),)),
+        clock=FakeClock(), logger=NullLogger())
+    result = await usecase.sync(SyncRequest())
+    assert Venue.TOKOCRYPTO not in result.portfolio.balances
+    assert result.unreachable == (Venue.TOKOCRYPTO,)
+
+
 async def test_reports_a_discrepancy_against_what_we_recorded():
     # Venue balances are the truth; our record being wrong is the finding.
     stored = make_portfolio(positions=[Position(symbol=BTC, quantity=Decimal("5"),

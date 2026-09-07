@@ -303,12 +303,19 @@ async def test_portfolio_snapshot_round_trips(portfolios):
         timestamp=TS, cash={Venue.INDODAX: Decimal("1234.56")},
         positions={BTC: Position(symbol=BTC, quantity=Decimal("0.5"),
                                  average_price=Decimal("100000"))},
-        equity=Decimal("51234.56"))
+        equity=Decimal("51234.56"),
+        balances={
+            Venue.INDODAX: {"BTC": Decimal("0.5"), "IDR": Decimal("1234.56")},
+            Venue.TOKOCRYPTO: {"USDT": Decimal("300"), "IDR": Decimal("3000000")},
+        })
     await portfolios.write_snapshot(portfolio)
     found = await portfolios.read_latest(as_of=TS)
     assert found.cash[Venue.INDODAX] == Decimal("1234.56")
     assert found.positions[BTC].quantity == Decimal("0.5")
     assert found.equity == Decimal("51234.56")
+    assert found.balances[Venue.TOKOCRYPTO] == {
+        "USDT": Decimal("300"), "IDR": Decimal("3000000")}
+    assert found.balances[Venue.INDODAX]["BTC"] == Decimal("0.5")
 
 
 @pytest.mark.asyncio

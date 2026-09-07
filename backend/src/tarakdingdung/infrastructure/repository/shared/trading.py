@@ -109,9 +109,22 @@ def cash_from_json(raw: Mapping[str, str]) -> dict[Venue, Decimal]:
     return {Venue(venue): Decimal(amount) for venue, amount in raw.items()}
 
 
+def balances_to_json(
+        balances: Mapping[Venue, Mapping[str, Decimal]]) -> dict[str, dict[str, str]]:
+    return {str(venue): {asset: str(amount) for asset, amount in assets.items()}
+            for venue, assets in balances.items()}
+
+
+def balances_from_json(
+        raw: Mapping[str, Mapping[str, str]]) -> dict[Venue, dict[str, Decimal]]:
+    return {Venue(venue): {asset: Decimal(amount) for asset, amount in assets.items()}
+            for venue, assets in (raw or {}).items()}
+
+
 def portfolio_from_orm(row: Any) -> Portfolio:
     return Portfolio(timestamp=row.captured_at, cash=cash_from_json(row.cash),
-                     positions=positions_from_json(row.positions), equity=row.equity)
+                     positions=positions_from_json(row.positions), equity=row.equity,
+                     balances=balances_from_json(getattr(row, "balances", None)))
 
 
 def equity_point_from_orm(row: Any) -> EquityPoint:

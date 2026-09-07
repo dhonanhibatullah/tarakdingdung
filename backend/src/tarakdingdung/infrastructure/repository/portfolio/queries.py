@@ -10,7 +10,7 @@ from tarakdingdung.infrastructure.repository.database.orm import (
     EquityPointORM, FillORM, PortfolioSnapshotORM, StrategyHaltORM,
 )
 from tarakdingdung.infrastructure.repository.shared.trading import (
-    cash_to_json, positions_to_json, symbol_columns,
+    balances_to_json, cash_to_json, positions_to_json, symbol_columns,
 )
 
 S = PortfolioSnapshotORM
@@ -22,7 +22,8 @@ H = StrategyHaltORM
 def build_insert_snapshot(portfolio: Portfolio):
     return pg_insert(S).values(
         captured_at=portfolio.timestamp, cash=cash_to_json(portfolio.cash),
-        positions=positions_to_json(portfolio.positions), equity=portfolio.equity)
+        positions=positions_to_json(portfolio.positions), equity=portfolio.equity,
+        balances=balances_to_json(portfolio.balances))
 
 
 def build_read_latest(as_of: int) -> Select:

@@ -184,6 +184,7 @@ class PortfolioSnapshotORM(Base):
     cash: Mapped[dict] = mapped_column(JSONB)
     positions: Mapped[list] = mapped_column(JSONB)
     equity: Mapped[Decimal] = mapped_column(Numeric(38, 18))
+    balances: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
 
 
 class EquityPointORM(Base):

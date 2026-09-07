@@ -289,6 +289,10 @@ class PortfolioResponse(BaseModel):
     cash: dict[str, str]
     positions: list[PositionResponse]
     equity: str
+    # Per-asset free balance of every reachable venue at this sync, keyed
+    # {venue: {asset: amount}}. Informational only — `equity` stays scoped to
+    # priced positions plus quote cash, so IDR and USDT are never summed.
+    balances: dict[str, dict[str, str]] = {}
 
 
 class RiskStateResponse(BaseModel):
@@ -312,7 +316,9 @@ def portfolio_response(portfolio) -> PortfolioResponse:
                                     quantity=str(p.quantity),
                                     average_price=str(p.average_price))
                    for s, p in portfolio.positions.items()],
-        equity=str(portfolio.equity))
+        equity=str(portfolio.equity),
+        balances={str(venue): {asset: str(amount) for asset, amount in assets.items()}
+                  for venue, assets in portfolio.balances.items()})
 
 
 def current_portfolio_response(result) -> CurrentPortfolioResponse:
