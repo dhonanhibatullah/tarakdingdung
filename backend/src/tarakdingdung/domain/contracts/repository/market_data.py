@@ -3,7 +3,7 @@ from collections.abc import Mapping
 from decimal import Decimal
 
 from tarakdingdung.domain.models.market import (
-    Candle, Coverage, MarketSnapshot, OrderBook, Symbol, TimeRange,
+    Candle, Coverage, MarketSnapshot, OrderBook, Symbol, SymbolRules, TimeRange,
 )
 
 
@@ -52,3 +52,18 @@ class MarketDataRepository(ABC):
     @abstractmethod
     async def read_coverage(self, *, symbol: Symbol, interval: str,
                             window: TimeRange) -> Coverage: ...
+
+    @abstractmethod
+    async def write_rules(self, rules: Mapping[Symbol, SymbolRules]) -> None: ...
+
+    @abstractmethod
+    async def read_rules(self, *,
+                         symbols: tuple[Symbol, ...]) -> Mapping[Symbol, SymbolRules]:
+        """Tick, step, min-notional and fees per symbol.
+
+        Stored by the collector and read from storage rather than fetched
+        mid-cycle: a cycle that called a venue to learn its rounding rules
+        would add network latency and a failure mode to the decision path, and
+        would stop being reproducible.
+        """
+        ...

@@ -16,15 +16,22 @@ class RunBacktestRequest:
     interval: str = "1h"
     periods_per_year: float = 8760.0
     min_completeness: float = 0.99
+    parameters_override: dict | None = None
     created_by: UUID | None = None
+    persist: bool = True
 
 
 @dataclass(frozen=True, slots=True)
 class RunBacktestResult:
-    run_id: UUID
+    """``returns`` is the per-period series, carried because the overfitting
+    test consumes it directly; recovering it from the stored equity curve would
+    make a validation run depend on persistence it does not otherwise need."""
+
+    run_id: UUID | None
     report: PerformanceReport
     cycles: int
     rejected_orders: int
+    returns: tuple[float, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

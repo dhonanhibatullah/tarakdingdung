@@ -25,7 +25,7 @@ from tarakdingdung.domain.models.execution import (
     ExecutionResult, OrderAck, OrderState, UnconfirmedOrder,
 )
 from tarakdingdung.domain.models.market import (
-    Candle, Coverage, MarketSnapshot, OrderBook, Symbol, TimeRange,
+    Candle, Coverage, MarketSnapshot, OrderBook, Symbol, SymbolRules, TimeRange,
 )
 from tarakdingdung.domain.models.performance import EquityPoint, Fill
 from tarakdingdung.domain.models.portfolio import Portfolio, RiskState
@@ -86,6 +86,7 @@ class FakeMarketDataRepository(MarketDataRepository):
         self.candles: dict[tuple[Symbol, str], list[Candle]] = {}
         self.books: dict[Symbol, OrderBook] = {}
         self.prices: dict[Symbol, tuple[int, Decimal]] = {}
+        self.rules: dict[Symbol, SymbolRules] = {}
         self.snapshot: MarketSnapshot | None = None
         self.coverage: Coverage | None = None
 
@@ -123,6 +124,12 @@ class FakeMarketDataRepository(MarketDataRepository):
             return self.coverage
         return Coverage(symbol=symbol, interval=interval, window=window,
                         expected=1, present=1, gaps=())
+
+    async def write_rules(self, rules) -> None:
+        self.rules.update(rules)
+
+    async def read_rules(self, *, symbols) -> Mapping[Symbol, SymbolRules]:
+        return {s: self.rules[s] for s in symbols if s in self.rules}
 
 
 class FakeStrategyRepository(StrategyRepository):
@@ -308,6 +315,8 @@ class FakeExecutor(Executor):
         self.cancelled.append(tuple(symbols))
 
     async def read_by_client_order_id(self, client_order_id) -> ExecutionResult:
+        if self._journal is not None:
+            self._journal.events.append("reconcile")
         return self.known.get(
             client_order_id,
             ExecutionResult(accepted=(), rejected=(), unconfirmed=(), fills=()))
