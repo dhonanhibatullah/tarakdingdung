@@ -178,6 +178,17 @@ async def test_held_decision_returns_held():
     assert result.status is CycleStatus.HELD
 
 
+class BrokenDecisionMaker:
+    async def decide(self, context):
+        raise RuntimeError("llm down")
+
+
+async def test_llm_transport_failure_holds():
+    engine, _ = _build([], decision_maker=BrokenDecisionMaker())
+    result = await engine.run_cycle()
+    assert result.status is CycleStatus.HELD
+
+
 async def test_halted_returns_halted():
     engine, _ = _build([], risk_overlay=StandardRiskOverlay([AlwaysHaltRule()]))
     result = await engine.run_cycle()

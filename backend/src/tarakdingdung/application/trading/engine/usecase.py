@@ -89,7 +89,10 @@ class TradingEngineUsecase(TradingEngine):
             balances = await self._portfolio.read_balances(snapshot.id)
 
             context = await self._compile_context(approved, snapshot, balances, prices)
-            decision_result = await self._decision_maker.decide(context)
+            try:
+                decision_result = await self._decision_maker.decide(context)
+            except Exception:
+                return CycleResult(CycleStatus.HELD, "llm unavailable")
             if decision_result.held or decision_result.decision is None:
                 return CycleResult(CycleStatus.HELD)
 
