@@ -167,7 +167,7 @@ def build_risk_overlay(settings: Settings):
 
 
 def build_rebalancer(settings: Settings):
-    return NoTradeBandRebalancer(band=0.01, min_notional=Decimal("1000"))
+    return NoTradeBandRebalancer(band=0.03, min_notional=Decimal("1000"))
 
 
 def build_cost_model(settings: Settings):

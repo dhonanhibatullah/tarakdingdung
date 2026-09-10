@@ -49,6 +49,28 @@ equity 10,000,000 IDR. Fees: 0.1% flat per side. No-trade band 1%, min notional
    then replay them — the honest D6 validation path.
 3. Re-evaluate once ~14 days of paper decisions exist.
 
+## Tuning results (same 90d window)
+
+Three LLM-on-history runs, iterating on the decision layer:
+
+| Iteration | Turnover | Fills | Return | Sharpe |
+|---|---|---|---|---|
+| v1 (original prompt, 1% band) | 505M | 862 | -8.7% | -0.015 |
+| v2 (+concentrate/hold prompt, 3% band) | 393M | 322 | +28.8% | 0.092 |
+| v3 (+holdings-aware context) | 121M | 205 | -7.7% | -0.026 |
+
+**Turnover is now controlled** (505M → 121M, fills 862 → 205): the
+"concentrate in 2-8 assets, hold, prefer cash" prompt plus the 3% no-trade band
+plus passing current holdings all reduce churn. **Return is noisy run-to-run**
+(because the LLM is non-deterministic), which is exactly why the paper test —
+accumulating real decisions and replaying them — is the honest evaluator, not
+one backtest. The live engine already passes real holdings, so the hold-bias
+works live.
+
+Deploy verdict unchanged: pipeline is correct, LLM decision layer is
+**not yet proven** — keep it PAPER until the accumulated paper decisions are
+replayed and judged.
+
 ## Paper test guidance (daily cadence)
 
 - **First check: 7 days** (7 decisions — pipeline sanity, no crashes, decisions
