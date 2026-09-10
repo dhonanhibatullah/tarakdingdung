@@ -1,6 +1,6 @@
 from tarakdingdung.domain.usecases.trading.collection import CollectResult
 from tarakdingdung.domain.usecases.trading.engine import CycleResult, CycleStatus
-from tarakdingdung.presentation.cron.tasks import collect, engine, snapshot
+from tarakdingdung.presentation.cron.tasks import collect, engine, snapshot, summarize
 
 
 class FakeLogger:
@@ -38,6 +38,15 @@ class FakeSnapshot:
         return type("S", (), {"equity": "1000"})()
 
 
+class FakeSummarizer:
+    def __init__(self) -> None:
+        self.called = False
+
+    async def summarize(self):
+        self.called = True
+        return None
+
+
 class FakeEngine:
     def __init__(self) -> None:
         self.called = False
@@ -50,6 +59,8 @@ class FakeEngine:
 class FakeContainer:
     def __init__(self) -> None:
         self.collection = FakeCollection()
+        self.summarizer = FakeSummarizer()
+        self.news_summarizer = FakeSummarizer()
         self.snapshot = FakeSnapshot()
         self.engine = FakeEngine()
         self.logger = FakeLogger()
@@ -59,6 +70,12 @@ async def test_collect_task():
     container = FakeContainer()
     await collect.run(container)
     assert container.collection.called
+
+
+async def test_summarize_task():
+    container = FakeContainer()
+    await summarize.run(container)
+    assert container.news_summarizer.called
 
 
 async def test_snapshot_task():

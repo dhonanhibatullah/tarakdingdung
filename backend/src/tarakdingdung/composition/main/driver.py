@@ -17,6 +17,7 @@ from tarakdingdung.application.profile.security.usecase import SecurityUsecase
 from tarakdingdung.application.trading.backtest.usecase import BacktestUsecase
 from tarakdingdung.application.trading.collection.usecase import CollectionUsecase
 from tarakdingdung.application.trading.engine.usecase import TradingEngineUsecase
+from tarakdingdung.application.trading.news_summarize.usecase import NewsSummarizerUsecase
 from tarakdingdung.application.trading.portfolio.usecase import PortfolioUsecase
 from tarakdingdung.application.trading.snapshot.usecase import SnapshotUsecase
 from tarakdingdung.application.trading.universe.usecase import UniverseUsecase
@@ -83,6 +84,7 @@ def build_container(settings: Settings) -> Container:
         news_source_factory,
         clock,
     )
+    news_summarizer = NewsSummarizerUsecase(completion, repos["news"], clock)
     engine = TradingEngineUsecase(
         enabled=settings.engine_enabled,
         universe_id=universe_id,
@@ -124,6 +126,7 @@ def build_container(settings: Settings) -> Container:
         backtest=backtest,
         snapshot=snapshot,
         collection=collection,
+        news_summarizer=news_summarizer,
         engine=engine,
         backtests=repos["backtests"],
         decisions=repos["decisions"],

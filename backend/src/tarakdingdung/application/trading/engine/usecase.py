@@ -39,6 +39,8 @@ class TradingEngineUsecase(TradingEngine):
         rebalancer: Rebalancer,
         executor: Executor,
         clock: Clock,
+        candle_lookback_ms: int = 30 * 86_400_000,
+        candle_limit: int = 30,
     ) -> None:
         self._enabled = enabled
         self._universe_id = universe_id
@@ -57,6 +59,8 @@ class TradingEngineUsecase(TradingEngine):
         self._rebalancer = rebalancer
         self._executor = executor
         self._clock = clock
+        self._candle_lookback_ms = candle_lookback_ms
+        self._candle_limit = candle_limit
 
     async def run_cycle(self) -> CycleResult:
         return await self._run(dry_run=False)
@@ -167,23 +171,27 @@ class TradingEngineUsecase(TradingEngine):
         universe_text = "\n".join(
             f"{s.id} {s.external} ({s.base}/{s.quote})" for s in approved
         )
+        now = self._clock.now_ms()
         candle_lines = []
         for symbol in approved:
-            price = prices.get(symbol.id)
-            if price is not None:
-                candle_lines.append(f"{symbol.id} close={price}")
+            series = await self._market_data.read_range(
+                symbol.id, now - self._candle_lookback_ms, now
+            )
+            recent = series[-self._candle_limit :]
+            closes = " ".join(str(c.close) for c in recent)
+            candle_lines.append(f"{symbol.id} {symbol.external}: {closes}")
         portfolio_lines = [f"equity={snapshot.equity}"]
         for b in balances:
             portfolio_lines.append(f"{b.asset} free={b.free} locked={b.locked}")
 
-        analyses = await self._news.read_analyses(self._clock.now_ms() - 86_400_000)
+        analyses = await self._news.read_analyses(now - 86_400_000)
         news_text = "\n".join(
             f"[{a.sentiment:+.2f}] {a.summary}" for a in analyses
         )
 
         return DecisionContext(
             universe_id=self._universe_id,
-            as_of_ms=self._clock.now_ms(),
+            as_of_ms=now,
             universe=universe_text,
             approved_symbol_ids=[s.id for s in approved],
             candles="\n".join(candle_lines),

@@ -20,6 +20,9 @@ async def test_run_once_calls_all_tasks(monkeypatch):
     async def fake_collect(container):
         calls.append("collect")
 
+    async def fake_summarize(container):
+        calls.append("summarize")
+
     async def fake_snapshot(container):
         calls.append("snapshot")
 
@@ -27,11 +30,12 @@ async def test_run_once_calls_all_tasks(monkeypatch):
         calls.append("engine")
 
     monkeypatch.setattr("tarakdingdung.presentation.cron.schedule.collect.run", fake_collect)
+    monkeypatch.setattr("tarakdingdung.presentation.cron.schedule.summarize.run", fake_summarize)
     monkeypatch.setattr("tarakdingdung.presentation.cron.schedule.snapshot.run", fake_snapshot)
     monkeypatch.setattr("tarakdingdung.presentation.cron.schedule.engine.run", fake_engine)
 
     await run_once(FakeContainer())
-    assert calls == ["collect", "snapshot", "engine"]
+    assert calls == ["collect", "summarize", "snapshot", "engine"]
 
 
 async def test_scheduler_disabled_returns_immediately(monkeypatch):

@@ -1,10 +1,11 @@
 import asyncio
 
-from tarakdingdung.presentation.cron.tasks import collect, engine, snapshot
+from tarakdingdung.presentation.cron.tasks import collect, engine, snapshot, summarize
 
 
 async def run_once(container) -> None:
     await collect.run(container)
+    await summarize.run(container)
     await snapshot.run(container)
     await engine.run(container)
 

@@ -16,6 +16,7 @@ from tarakdingdung.domain.contracts.utility.token import Token
 from tarakdingdung.domain.usecases.trading.backtest import Backtest
 from tarakdingdung.domain.usecases.trading.collection import Collection
 from tarakdingdung.domain.usecases.trading.engine import TradingEngine
+from tarakdingdung.domain.usecases.trading.news_summarize import NewsSummarizer
 from tarakdingdung.domain.usecases.trading.portfolio import Portfolio
 from tarakdingdung.domain.usecases.trading.snapshot import Snapshot
 from tarakdingdung.domain.usecases.trading.universe import Universe
@@ -38,6 +39,7 @@ class Container:
     backtest: Backtest | None = None
     snapshot: Snapshot | None = None
     collection: Collection | None = None
+    news_summarizer: NewsSummarizer | None = None
     engine: TradingEngine | None = None
     backtests: BacktestRepository | None = None
     decisions: DecisionRepository | None = None
