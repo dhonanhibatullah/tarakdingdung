@@ -123,7 +123,7 @@ def build_repositories(settings: Settings):
 
 def build_completion(settings: Settings):
     return HttpOpenAiCompatibleCompletion(
-        httpx.AsyncClient(follow_redirects=True),
+        httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(120.0)),
         settings.llm_base_url,
         settings.llm_api_key,
         settings.llm_model,
@@ -131,11 +131,13 @@ def build_completion(settings: Settings):
 
 
 def build_market_source(settings: Settings):
-    return HttpIndodaxPublicApi(httpx.AsyncClient(follow_redirects=True))
+    return HttpIndodaxPublicApi(
+        httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(30.0))
+    )
 
 
 def build_news_sources(settings: Settings):
-    client = httpx.AsyncClient(follow_redirects=True)
+    client = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(30.0))
 
     def factory(url: str) -> HttpNewsSource:
         return HttpNewsSource(client, [url])
@@ -146,7 +148,7 @@ def build_news_sources(settings: Settings):
 def build_exchange(settings: Settings):
     if settings.engine_mode == "live":
         return HttpIndodaxV2Api(
-            httpx.AsyncClient(follow_redirects=True),
+            httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(30.0)),
             settings.indodax_api_key,
             settings.indodax_secret_key,
         )
