@@ -11,3 +11,11 @@ class Candle:
     low: Decimal
     close: Decimal
     volume: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class Ticker:
+    symbol_id: str
+    last_price: Decimal
+    timestamp_ms: int
+

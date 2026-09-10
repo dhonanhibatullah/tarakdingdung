@@ -12,15 +12,45 @@ async def test_all_tables_exist(session_factory):
             )
         )
         names = {row[0] for row in result}
-    expected = {"permissions", "roles", "role_permissions", "users", "user_roles"}
-    assert expected.issubset(names)
-
-
-def test_orm_metadata_matches_tables(session_factory):
-    assert {t for t in Base.metadata.tables} == {
+    expected = {
         "permissions",
         "roles",
         "role_permissions",
         "users",
         "user_roles",
+        "symbols",
+        "universes",
+        "universe_memberships",
+        "candles",
+        "news_articles",
+        "news_analyses",
+        "decisions",
+        "backtest_results",
+        "portfolio_snapshots",
+        "balances",
+        "orders",
+        "fills",
+    }
+    assert expected.issubset(names)
+
+
+def test_orm_metadata_matches_tables(session_factory):
+    assert set(Base.metadata.tables) == {
+        "permissions",
+        "roles",
+        "role_permissions",
+        "users",
+        "user_roles",
+        "symbols",
+        "universes",
+        "universe_memberships",
+        "candles",
+        "news_articles",
+        "news_analyses",
+        "decisions",
+        "backtest_results",
+        "portfolio_snapshots",
+        "balances",
+        "orders",
+        "fills",
     }
