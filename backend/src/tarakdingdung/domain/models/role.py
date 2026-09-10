@@ -8,6 +8,7 @@ class Role:
     id: str
     name: str
     description: str = ""
+    is_default: bool = False
 
     def __post_init__(self) -> None:
         if not self.name:
