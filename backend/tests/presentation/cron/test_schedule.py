@@ -35,7 +35,7 @@ async def test_run_once_calls_all_tasks(monkeypatch):
     monkeypatch.setattr("tarakdingdung.presentation.cron.schedule.engine.run", fake_engine)
 
     await run_once(FakeContainer())
-    assert calls == ["collect", "summarize", "snapshot", "engine"]
+    assert calls == ["collect", "summarize", "engine", "snapshot"]
 
 
 async def test_scheduler_disabled_returns_immediately(monkeypatch):
