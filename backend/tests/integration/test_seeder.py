@@ -1,13 +1,37 @@
+from decimal import Decimal
+
 import pytest
 
 from tarakdingdung.composition.seeder.launcher import _apply
 from tarakdingdung.config.settings import Settings
+from tarakdingdung.infrastructure.repository.backtest.repository import (
+    SqlAlchemyBacktestRepository,
+)
+from tarakdingdung.infrastructure.repository.decision.repository import (
+    SqlAlchemyDecisionRepository,
+)
+from tarakdingdung.infrastructure.repository.market_data.repository import (
+    SqlAlchemyMarketDataRepository,
+)
+from tarakdingdung.infrastructure.repository.news.repository import SqlAlchemyNewsRepository
+from tarakdingdung.infrastructure.repository.order_journal.repository import (
+    SqlAlchemyOrderJournalRepository,
+)
 from tarakdingdung.infrastructure.repository.permission.repository import (
     SqlAlchemyPermissionRepository,
+)
+from tarakdingdung.infrastructure.repository.portfolio.repository import (
+    SqlAlchemyPortfolioRepository,
 )
 from tarakdingdung.infrastructure.repository.role.repository import SqlAlchemyRoleRepository
 from tarakdingdung.infrastructure.repository.role_permission.repository import (
     SqlAlchemyRolePermissionRepository,
+)
+from tarakdingdung.infrastructure.repository.symbol.repository import (
+    SqlAlchemySymbolRepository,
+)
+from tarakdingdung.infrastructure.repository.universe.repository import (
+    SqlAlchemyUniverseRepository,
 )
 from tarakdingdung.infrastructure.repository.user.repository import SqlAlchemyUserRepository
 from tarakdingdung.infrastructure.repository.user_role.repository import (
@@ -23,6 +47,14 @@ def _repos(session_factory):
         "role_permissions": SqlAlchemyRolePermissionRepository(session_factory),
         "users": SqlAlchemyUserRepository(session_factory),
         "user_roles": SqlAlchemyUserRoleRepository(session_factory),
+        "symbols": SqlAlchemySymbolRepository(session_factory),
+        "universes": SqlAlchemyUniverseRepository(session_factory),
+        "market_data": SqlAlchemyMarketDataRepository(session_factory),
+        "news": SqlAlchemyNewsRepository(session_factory),
+        "decisions": SqlAlchemyDecisionRepository(session_factory),
+        "backtests": SqlAlchemyBacktestRepository(session_factory),
+        "portfolio": SqlAlchemyPortfolioRepository(session_factory),
+        "order_journal": SqlAlchemyOrderJournalRepository(session_factory),
     }
 
 
@@ -32,6 +64,8 @@ def _settings():
         seed_super_password="s",
         seed_admin_password="a",
         seed_user_password="u",
+        engine_mode="paper",
+        engine_initial_equity="10000000",
     )
 
 
@@ -68,3 +102,23 @@ async def test_seeder_assigns_default_role(session_factory):
     user = await repos["users"].read_by_username("user")
     roles = await repos["user_roles"].read_roles_by_user(user.id)
     assert [r.name for r in roles] == ["user"]
+
+
+async def test_seeder_seeds_universe_and_portfolio(session_factory):
+    repos = _repos(session_factory)
+    password = BcryptPassword(cost=4)
+    await _apply(repos, password, _settings())
+
+    universe = await repos["universes"].read_by_id("default")
+    assert universe is not None
+
+    from tarakdingdung.domain.models.symbol import MembershipState
+
+    approved = await repos["universes"].read_symbols_by_state(
+        "default", MembershipState.APPROVED
+    )
+    assert {s.external for s in approved} == {"BTCIDR", "ETHIDR"}
+
+    snapshot = await repos["portfolio"].read_latest("indodax")
+    assert snapshot is not None
+    assert snapshot.equity == Decimal("10000000")

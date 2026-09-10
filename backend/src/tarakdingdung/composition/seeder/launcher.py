@@ -1,14 +1,23 @@
 import asyncio
 import json
+from decimal import Decimal
 from pathlib import Path
 
 from tarakdingdung.composition.main import infrastructure
 from tarakdingdung.config.settings import Settings
 from tarakdingdung.domain.models.permission import Permission
+from tarakdingdung.domain.models.portfolio import Balance, PortfolioSnapshot
 from tarakdingdung.domain.models.role import Role
 from tarakdingdung.domain.models.role_permission import RolePermission
+from tarakdingdung.domain.models.symbol import (
+    MembershipState,
+    Symbol,
+    Universe,
+    UniverseMembership,
+)
 from tarakdingdung.domain.models.user import User
 from tarakdingdung.domain.models.user_role import UserRole
+from tarakdingdung.infrastructure.utility.clock.system import SystemClock
 
 
 def _seed_dir() -> Path:
@@ -83,6 +92,58 @@ async def _apply(repos: dict, password, settings: Settings) -> None:
             if role is None or role.id in assigned_roles:
                 continue
             await user_roles.create(UserRole(user_id=user.id, role_id=role.id))
+
+    await _seed_universe(repos, settings)
+
+
+async def _seed_universe(repos: dict, settings: Settings) -> None:
+    universes = repos["universes"]
+    symbols = repos["symbols"]
+    spec = json.loads((_seed_dir() / "universe.json").read_text())
+
+    universe = await universes.read_by_id(spec["id"])
+    if universe is None:
+        universe = await universes.create(
+            Universe(id=spec["id"], name=spec["name"])
+        )
+
+    for item in spec["symbols"]:
+        symbol = await symbols.read_by_external(item["venue"], item["external"])
+        if symbol is None:
+            symbol = await symbols.create(
+                Symbol(
+                    id="",
+                    venue=item["venue"],
+                    base=item["base"],
+                    quote=item["quote"],
+                    external=item["external"],
+                )
+            )
+        memberships = await universes.read_memberships(universe.id)
+        if not any(m.symbol_id == symbol.id for m in memberships):
+            await universes.add_membership(
+                UniverseMembership(
+                    universe_id=universe.id,
+                    symbol_id=symbol.id,
+                    state=MembershipState.APPROVED,
+                    rationale="seeded",
+                )
+            )
+
+    if settings.engine_mode == "paper":
+        portfolio = repos["portfolio"]
+        latest = await portfolio.read_latest(settings.engine_venue)
+        if latest is None:
+            equity = Decimal(settings.engine_initial_equity)
+            await portfolio.create_snapshot(
+                PortfolioSnapshot(
+                    id="",
+                    venue=settings.engine_venue,
+                    as_of_ms=SystemClock().now_ms(),
+                    equity=equity,
+                ),
+                [Balance(snapshot_id="", asset="IDR", free=equity, locked=Decimal("0"))],
+            )
 
 
 def run() -> None:

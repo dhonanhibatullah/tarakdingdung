@@ -36,9 +36,18 @@ class Settings(BaseSettings):
     cron_enabled: bool = False
     engine_interval_seconds: int = 86400
 
+    engine_enabled: bool = False
+    engine_mode: str = "paper"
+    universe_id: str = "default"
+    engine_venue: str = "indodax"
+    engine_initial_equity: str = "10000000"
+
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = "deepseek-v4-pro"
+
+    indodax_api_key: str = ""
+    indodax_secret_key: str = ""
 
     news_sources: str = ""
 

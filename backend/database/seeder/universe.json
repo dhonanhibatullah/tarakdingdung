@@ -1,0 +1,8 @@
+{
+  "id": "default",
+  "name": "default",
+  "symbols": [
+    {"venue": "indodax", "base": "BTC", "quote": "IDR", "external": "BTCIDR"},
+    {"venue": "indodax", "base": "ETH", "quote": "IDR", "external": "ETHIDR"}
+  ]
+}

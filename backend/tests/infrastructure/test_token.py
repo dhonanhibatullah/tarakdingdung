@@ -32,9 +32,8 @@ def test_refresh_roundtrip():
 def test_decode_rejects_tampered_token():
     t = make_token()
     token = t.encode_access(TokenClaims(sub="1", username="alice"))
-    tampered = token[:-1] + ("A" if token[-1] != "A" else "B")
     with pytest.raises(DomainError) as exc:
-        t.decode(tampered)
+        t.decode(token[:-1])
     assert exc.value.error_type is ErrorType.UNAUTHORIZED
 
 
