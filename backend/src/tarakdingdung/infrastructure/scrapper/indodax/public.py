@@ -29,24 +29,17 @@ class HttpIndodaxPublicApi(MarketSource):
         resp.raise_for_status()
         data = resp.json()
 
-        times = data.get("t", [])
-        opens = data.get("o", [])
-        highs = data.get("h", [])
-        lows = data.get("l", [])
-        closes = data.get("c", [])
-        volumes = data.get("v", [])
-
         candles: list[Candle] = []
-        for i in range(len(times)):
+        for item in data:
             candles.append(
                 Candle(
                     symbol_id=symbol.id,
-                    open_time_ms=times[i] * 1000,
-                    open=Decimal(str(opens[i])),
-                    high=Decimal(str(highs[i])),
-                    low=Decimal(str(lows[i])),
-                    close=Decimal(str(closes[i])),
-                    volume=Decimal(str(volumes[i])),
+                    open_time_ms=int(item["Time"]) * 1000,
+                    open=Decimal(str(item["Open"])),
+                    high=Decimal(str(item["High"])),
+                    low=Decimal(str(item["Low"])),
+                    close=Decimal(str(item["Close"])),
+                    volume=Decimal(str(item["Volume"])),
                 )
             )
         return candles
@@ -61,5 +54,5 @@ class HttpIndodaxPublicApi(MarketSource):
         return Ticker(
             symbol_id=symbol.id,
             last_price=Decimal(str(ticker["last"])),
-            timestamp_ms=int(ticker["server_time"]),
+            timestamp_ms=int(ticker["server_time"]) * 1000,
         )

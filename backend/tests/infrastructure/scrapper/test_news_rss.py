@@ -1,3 +1,5 @@
+import httpx
+
 from tarakdingdung.infrastructure.scrapper.news.rss import HttpNewsSource
 
 
@@ -31,3 +33,21 @@ def test_parse_rss_items():
     assert articles[0].source == "https://example.com/feed"
     assert articles[0].raw_text == "BTC up 5%"
     assert articles[0].published_ms > 0
+
+
+async def test_fetch_follows_redirect():
+    def handler(request):
+        if str(request.url).endswith("/feed/"):
+            return httpx.Response(
+                308, headers={"location": "/feed"}
+            )
+        return httpx.Response(
+            200, text=RSS, headers={"content-type": "application/rss+xml"}
+        )
+
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(handler), follow_redirects=True
+    )
+    source = HttpNewsSource(client, ["https://example.com/feed/"])
+    articles = await source.fetch()
+    assert len(articles) == 2

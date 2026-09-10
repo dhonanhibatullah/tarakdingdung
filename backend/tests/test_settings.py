@@ -24,3 +24,5 @@ def test_defaults():
     s = Settings(_env_file=None)
     assert s.cron_enabled is False
     assert s.engine_interval_seconds == 86400
+    assert s.llm_model == "deepseek-chat"
+    assert s.llm_base_url == "https://api.deepseek.com"

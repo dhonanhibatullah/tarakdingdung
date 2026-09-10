@@ -14,15 +14,24 @@ async def test_fetch_candles():
     def handler(request):
         return httpx.Response(
             200,
-            json={
-                "s": "ok",
-                "t": [1000, 1060],
-                "o": ["1", "2"],
-                "h": ["3", "4"],
-                "l": ["0.5", "1.5"],
-                "c": ["2", "3"],
-                "v": ["10", "20"],
-            },
+            json=[
+                {
+                    "Time": 1000,
+                    "Open": 1371027000,
+                    "High": 1374765000,
+                    "Low": 1368572000,
+                    "Close": 1374765000,
+                    "Volume": "0.54342495",
+                },
+                {
+                    "Time": 1060,
+                    "Open": 1374765000,
+                    "High": 1379726000,
+                    "Low": 1374764000,
+                    "Close": 1377031000,
+                    "Volume": "0.36980219",
+                },
+            ],
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -31,9 +40,10 @@ async def test_fetch_candles():
 
     assert len(candles) == 2
     assert candles[0].symbol_id == "s1"
-    assert candles[0].open == Decimal("1")
     assert candles[0].open_time_ms == 1_000_000
-    assert candles[1].close == Decimal("3")
+    assert candles[0].open == Decimal("1371027000")
+    assert candles[0].volume == Decimal("0.54342495")
+    assert candles[1].close == Decimal("1377031000")
 
 
 async def test_fetch_candles_requests_tradingview_symbol():
@@ -41,7 +51,7 @@ async def test_fetch_candles_requests_tradingview_symbol():
 
     def handler(request):
         captured["params"] = dict(request.url.params)
-        return httpx.Response(200, json={"t": [], "o": [], "h": [], "l": [], "c": [], "v": []})
+        return httpx.Response(200, json=[])
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     api = HttpIndodaxPublicApi(client)
@@ -55,7 +65,7 @@ async def test_fetch_ticker():
     def handler(request):
         return httpx.Response(
             200,
-            json={"ticker": {"last": "98765", "server_time": 1700000000000}},
+            json={"ticker": {"last": "1379323000", "server_time": 1789015293}},
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -63,5 +73,5 @@ async def test_fetch_ticker():
     ticker = await api.fetch_ticker(_symbol())
 
     assert ticker.symbol_id == "s1"
-    assert ticker.last_price == Decimal("98765")
-    assert ticker.timestamp_ms == 1700000000000
+    assert ticker.last_price == Decimal("1379323000")
+    assert ticker.timestamp_ms == 1789015293000

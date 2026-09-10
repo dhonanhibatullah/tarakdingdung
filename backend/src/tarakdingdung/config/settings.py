@@ -42,9 +42,9 @@ class Settings(BaseSettings):
     engine_venue: str = "indodax"
     engine_initial_equity: str = "10000000"
 
-    llm_base_url: str = ""
+    llm_base_url: str = "https://api.deepseek.com"
     llm_api_key: str = ""
-    llm_model: str = "deepseek-v4-pro"
+    llm_model: str = "deepseek-chat"
 
     indodax_api_key: str = ""
     indodax_secret_key: str = ""
