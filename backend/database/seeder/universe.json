@@ -2,7 +2,155 @@
   "id": "default",
   "name": "default",
   "symbols": [
-    {"venue": "indodax", "base": "BTC", "quote": "IDR", "external": "BTCIDR"},
-    {"venue": "indodax", "base": "ETH", "quote": "IDR", "external": "ETHIDR"}
+    {
+      "venue": "indodax",
+      "base": "BTC",
+      "quote": "IDR",
+      "external": "BTCIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "FARTCOIN",
+      "quote": "IDR",
+      "external": "FARTCOINIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "IOST",
+      "quote": "IDR",
+      "external": "IOSTIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "USELESS",
+      "quote": "IDR",
+      "external": "USELESSIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "XRP",
+      "quote": "IDR",
+      "external": "XRPIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "BEAT",
+      "quote": "IDR",
+      "external": "BEATIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "HYPE",
+      "quote": "IDR",
+      "external": "HYPEIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "SOL",
+      "quote": "IDR",
+      "external": "SOLIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "ETH",
+      "quote": "IDR",
+      "external": "ETHIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "UAI",
+      "quote": "IDR",
+      "external": "UAIIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "DOGE",
+      "quote": "IDR",
+      "external": "DOGEIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "ASTER",
+      "quote": "IDR",
+      "external": "ASTERIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "PEPE",
+      "quote": "IDR",
+      "external": "PEPEIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "ADA",
+      "quote": "IDR",
+      "external": "ADAIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "SUI",
+      "quote": "IDR",
+      "external": "SUIIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "PIPPIN",
+      "quote": "IDR",
+      "external": "PIPPINIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "VELVET",
+      "quote": "IDR",
+      "external": "VELVETIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "ARB",
+      "quote": "IDR",
+      "external": "ARBIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "LRC",
+      "quote": "IDR",
+      "external": "LRCIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "ENA",
+      "quote": "IDR",
+      "external": "ENAIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "PENGU",
+      "quote": "IDR",
+      "external": "PENGUIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "NEAR",
+      "quote": "IDR",
+      "external": "NEARIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "VVV",
+      "quote": "IDR",
+      "external": "VVVIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "TROLLSOL",
+      "quote": "IDR",
+      "external": "TROLLSOLIDR"
+    },
+    {
+      "venue": "indodax",
+      "base": "BICO",
+      "quote": "IDR",
+      "external": "BICOIDR"
+    }
   ]
 }

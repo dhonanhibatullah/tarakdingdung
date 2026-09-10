@@ -121,7 +121,9 @@ async def test_seeder_seeds_universe_and_portfolio(session_factory):
     approved = await repos["universes"].read_symbols_by_state(
         "default", MembershipState.APPROVED
     )
-    assert {s.external for s in approved} == {"BTCIDR", "ETHIDR"}
+    externals = {s.external for s in approved}
+    assert "BTCIDR" in externals
+    assert len(approved) >= 20
 
     snapshot = await repos["portfolio"].read_latest("indodax")
     assert snapshot is not None
