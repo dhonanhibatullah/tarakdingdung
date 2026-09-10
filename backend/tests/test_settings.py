@@ -1,34 +1,35 @@
-import pytest
-
 from tarakdingdung.config.settings import Settings
 
 
-def test_defaults_match_spec():
+def test_settings_loads_from_env(monkeypatch):
+    monkeypatch.setenv("TRDD_BE_POSTGRES_DATABASE", "testdb")
+    monkeypatch.setenv("TRDD_BE_LLM_MODEL", "deepseek-v4-pro")
     s = Settings()
-    assert s.app_name == "tarakdingdung"
-    assert s.token_access_ttl_seconds == 900
-    assert s.password_bcrypt_cost == 12
-    assert s.http_cors_allowed_origins == ["*"]
+    assert s.postgres_database == "testdb"
+    assert s.llm_model == "deepseek-v4-pro"
 
 
-def test_env_prefix_is_trdd_be(monkeypatch):
-    monkeypatch.setenv("TRDD_BE_POSTGRES_DATABASE", "custom_db")
-    monkeypatch.setenv("TRDD_BE_TOKEN_ACCESS_TTL_SECONDS", "60")
-    s = Settings()
-    assert s.postgres_database == "custom_db"
-    assert s.token_access_ttl_seconds == 60
+def test_postgres_dsn():
+    s = Settings(
+        postgres_username="u",
+        postgres_password="p",
+        postgres_host="h",
+        postgres_port=5432,
+        postgres_database="d",
+    )
+    assert s.postgres_dsn == "postgresql+asyncpg://u:p@h:5432/d"
 
 
-def test_postgres_dsn_is_asyncpg():
-    s = Settings(postgres_username="u", postgres_password="p",
-                 postgres_host="h", postgres_port=1234, postgres_database="d")
-    assert s.postgres_dsn == "postgresql+asyncpg://u:p@h:1234/d"
+def test_news_sources_list():
+    s = Settings(news_sources="https://a.com, https://b.com")
+    assert s.news_sources_list == ["https://a.com", "https://b.com"]
 
 
-@pytest.mark.parametrize("raw,expected", [
-    ("a.com,b.com", ["a.com", "b.com"]),
-    ("  x.com , y.com ", ["x.com", "y.com"]),
-])
-def test_cors_origins_parsed_from_csv(monkeypatch, raw, expected):
-    monkeypatch.setenv("TRDD_BE_HTTP_CORS_ALLOWED_ORIGINS", raw)
-    assert Settings().http_cors_allowed_origins == expected
+def test_news_sources_list_empty():
+    assert Settings(news_sources="").news_sources_list == []
+
+
+def test_defaults():
+    s = Settings(_env_file=None)
+    assert s.cron_enabled is False
+    assert s.engine_interval_seconds == 86400

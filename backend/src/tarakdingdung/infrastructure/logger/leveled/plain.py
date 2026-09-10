@@ -1,33 +1,38 @@
-import json
-from datetime import datetime
+import sys
+from typing import TextIO
+
 from tarakdingdung.domain.contracts.logger.leveled import LeveledLogger
-from tarakdingdung.domain.models.logger import LoggerLevel
-from tarakdingdung.infrastructure.logger.normalize import normalize_meta
+
+_LEVEL_ORDER = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40}
 
 
-class BasicLeveledLogging(LeveledLogger):
-    def __init__(self, level: LoggerLevel) -> None:
-        self.level = level
-        
-    async def error(self, tag: str, message: str, meta: dict) -> None:
-        await self._log(LoggerLevel.ERROR, tag, message, meta)
+class PlainLeveledLogger(LeveledLogger):
+    def __init__(
+        self,
+        name: str = "tarakdingdung",
+        level: str = "INFO",
+        stream: TextIO | None = None,
+    ) -> None:
+        self._name = name
+        self._level = level.upper()
+        self._stream = stream or sys.stdout
 
-    async def warn(self, tag: str, message: str, meta: dict) -> None:
-        await self._log(LoggerLevel.WARN, tag, message, meta)
-
-    async def info(self, tag: str, message: str, meta: dict) -> None:
-        await self._log(LoggerLevel.INFO, tag, message, meta)
-
-    async def debug(self, tag: str, message: str, meta: dict) -> None:
-        await self._log(LoggerLevel.DEBUG, tag, message, meta)
-    
-    async def _log(self, level: LoggerLevel, tag: str, message: str, meta: dict) -> None:
-        if self.level.order < level.order:
+    def _emit(self, level: str, message: str, fields: dict) -> None:
+        if _LEVEL_ORDER[level.upper()] < _LEVEL_ORDER[self._level]:
             return
+        parts = [f"{level.upper():<7}", f"[{self._name}]", message]
+        if fields:
+            parts.append(" ".join(f"{k}={v}" for k, v in fields.items()))
+        print(" ".join(parts), file=self._stream, flush=True)
 
-        now = datetime.now()
-        timestamp = now.strftime("%d-%m-%Y %H:%M:%S") + f".{now.microsecond // 1000:03d}"
-        level_str = level.upper()
-        normalized = normalize_meta(meta)
-        meta_str = json.dumps(normalized, default=str) if normalized else "{}"
-        print(f"{timestamp} [{level_str}] [{tag}] {message} | {meta_str}", flush=True)
+    def debug(self, message: str, **fields) -> None:
+        self._emit("debug", message, fields)
+
+    def info(self, message: str, **fields) -> None:
+        self._emit("info", message, fields)
+
+    def warning(self, message: str, **fields) -> None:
+        self._emit("warning", message, fields)
+
+    def error(self, message: str, **fields) -> None:
+        self._emit("error", message, fields)
