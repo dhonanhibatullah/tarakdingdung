@@ -1,0 +1,20 @@
+[
+  {
+    "username": "super",
+    "email": "super@tarakdingdung.local",
+    "password": "seed_super_password",
+    "roles": ["super"]
+  },
+  {
+    "username": "admin",
+    "email": "admin@tarakdingdung.local",
+    "password": "seed_admin_password",
+    "roles": ["admin"]
+  },
+  {
+    "username": "user",
+    "email": "user@tarakdingdung.local",
+    "password": "seed_user_password",
+    "roles": ["user"]
+  }
+]

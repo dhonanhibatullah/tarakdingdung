@@ -1,0 +1,13 @@
+[
+  {"name": "admin", "description": "Manage users, roles, and permissions"},
+  {"name": "universe:get", "description": "Read the trading universe"},
+  {"name": "universe:add", "description": "Propose symbols to the universe"},
+  {"name": "universe:set", "description": "Approve or reject universe proposals"},
+  {"name": "universe:remove", "description": "Remove symbols from the universe"},
+  {"name": "market_data:get", "description": "Read market data"},
+  {"name": "backtest:get", "description": "Read backtest results"},
+  {"name": "backtest:add", "description": "Create backtests"},
+  {"name": "portfolio:get", "description": "Read portfolio snapshots"},
+  {"name": "decision:get", "description": "Read LLM decisions"},
+  {"name": "engine:run", "description": "Run the trading engine"}
+]

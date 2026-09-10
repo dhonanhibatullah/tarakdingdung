@@ -1,0 +1,47 @@
+[
+  {
+    "name": "super",
+    "description": "Full access",
+    "is_default": false,
+    "permissions": [
+      "admin",
+      "universe:get",
+      "universe:add",
+      "universe:set",
+      "universe:remove",
+      "market_data:get",
+      "backtest:get",
+      "backtest:add",
+      "portfolio:get",
+      "decision:get",
+      "engine:run"
+    ]
+  },
+  {
+    "name": "admin",
+    "description": "Observe and evaluate",
+    "is_default": false,
+    "permissions": [
+      "admin",
+      "universe:get",
+      "universe:set",
+      "market_data:get",
+      "backtest:get",
+      "backtest:add",
+      "portfolio:get",
+      "decision:get"
+    ]
+  },
+  {
+    "name": "user",
+    "description": "Read-only observer",
+    "is_default": true,
+    "permissions": [
+      "universe:get",
+      "market_data:get",
+      "backtest:get",
+      "portfolio:get",
+      "decision:get"
+    ]
+  }
+]
