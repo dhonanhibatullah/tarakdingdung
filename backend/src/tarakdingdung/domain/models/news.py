@@ -17,3 +17,11 @@ class NewsAnalysis:
     article_id: str
     summary: str
     sentiment: float
+
+
+@dataclass(frozen=True, slots=True)
+class NewsFeed:
+    id: str
+    name: str
+    url: str
+    enabled: bool = True

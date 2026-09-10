@@ -2,10 +2,11 @@ from decimal import Decimal
 
 from tarakdingdung.application.trading.collection.usecase import CollectionUsecase
 from tarakdingdung.domain.models.market import Candle
-from tarakdingdung.domain.models.news import NewsArticle
+from tarakdingdung.domain.models.news import NewsArticle, NewsFeed
 from tarakdingdung.domain.models.symbol import Symbol
 from tests.fakes.trading import (
     InMemoryMarketDataRepository,
+    InMemoryNewsFeedRepository,
     InMemoryNewsRepository,
     InMemoryUniverseRepository,
 )
@@ -40,7 +41,8 @@ class FakeMarketSource:
 
 
 class FakeNewsSource:
-    def __init__(self, fail=False) -> None:
+    def __init__(self, url, fail=False) -> None:
+        self.url = url
         self.fail = fail
 
     async def fetch(self):
@@ -48,19 +50,22 @@ class FakeNewsSource:
             raise RuntimeError("down")
         return [
             NewsArticle(
-                id="", source="s", url="u", title="t", published_ms=1, raw_text="x"
+                id="", source=self.url, url="u", title="t", published_ms=1, raw_text="x"
             )
         ]
 
 
-def _usecase(market_data, news, universe, market_source, news_sources):
+def _usecase(market_data, news, universe, market_source, news_feeds, news_factory=None):
+    if news_factory is None:
+        news_factory = lambda url: FakeNewsSource(url)
     return CollectionUsecase(
         universe_id="u1",
         universes=universe,
         market_data=market_data,
         news=news,
         market_source=market_source,
-        news_sources=news_sources,
+        news_feeds=news_feeds,
+        news_source_factory=news_factory,
         clock=FakeClock(),
     )
 
@@ -71,10 +76,9 @@ async def test_collect_candles_and_news():
     )
     market_data = InMemoryMarketDataRepository()
     news = InMemoryNewsRepository()
+    news_feeds = InMemoryNewsFeedRepository([NewsFeed(id="f1", name="CoinDesk", url="https://example.com/rss")])
 
-    usecase = _usecase(
-        market_data, news, universe, FakeMarketSource(), [FakeNewsSource()]
-    )
+    usecase = _usecase(market_data, news, universe, FakeMarketSource(), news_feeds)
     result = await usecase.collect()
 
     assert result.failed == []
@@ -88,12 +92,33 @@ async def test_collect_tolerates_partial_failure():
     )
     market_data = InMemoryMarketDataRepository()
     news = InMemoryNewsRepository()
+    news_feeds = InMemoryNewsFeedRepository([NewsFeed(id="f1", name="Down", url="https://example.com/rss")])
 
     usecase = _usecase(
-        market_data, news, universe, FakeMarketSource(fail=True), [FakeNewsSource(fail=True)]
+        market_data,
+        news,
+        universe,
+        FakeMarketSource(fail=True),
+        news_feeds,
+        news_factory=lambda url: FakeNewsSource(url, fail=True),
     )
     result = await usecase.collect()
 
     assert len(result.failed) == 2
     assert market_data.candles == []
+    assert news.articles == []
+
+
+async def test_collect_skips_disabled_feeds():
+    universe = InMemoryUniverseRepository(approved_symbols=[])
+    market_data = InMemoryMarketDataRepository()
+    news = InMemoryNewsRepository()
+    news_feeds = InMemoryNewsFeedRepository(
+        [NewsFeed(id="f1", name="Disabled", url="https://example.com/rss", enabled=False)]
+    )
+
+    usecase = _usecase(market_data, news, universe, FakeMarketSource(), news_feeds)
+    result = await usecase.collect()
+
+    assert result.failed == []
     assert news.articles == []

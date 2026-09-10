@@ -58,11 +58,12 @@ layer abstraction.
 - `domain/models/` — frozen slots dataclasses plus `DomainError`/`ErrorType`.
   RBAC: `permission`, `role`, `role_permission`, `user`, `token_claims`.
   Trading: `symbol`, `universe`, `candle`, `market`, `portfolio_snapshot`,
-  `news_article`, `news_analysis`, `llm_decision`, `backtest_result`, `order`,
-  `execution`, `fill`, `decision` (target weights).
+  `news_article`, `news_analysis`, `news_feed`, `llm_decision`,
+  `backtest_result`, `order`, `execution`, `fill`, `decision` (target weights).
 - `domain/contracts/` — ABCs:
-  - `repository/` — permission, role, role_permission, user, symbol,
-    market_data, news, decision, backtest, portfolio, order_journal.
+  - `repository/` — permission, role, role_permission, user, user_role, symbol,
+    universe, market_data, news, news_feed, decision, backtest, portfolio,
+    order_journal.
   - `llm/` — `completion.py` (provider), `agent.py` (specialist),
     `pipeline.py` (decision maker), `validation.py` (schema validator).
   - `algorithm/` — `risk.py`, `rebalance.py`, `cost.py`, `metric.py`,
@@ -296,7 +297,8 @@ from this spec.
   was the best LLM result — revisit once the pipeline is live.
 - **Token/latency budget** per decision is configurable and sized once the
   provider is fixed.
-- **News source allowlist** is config-driven; empty by default.
+- **News source allowlist** is seeded in the `news_feeds` table from
+  `database/seeder/news_sources.json` (verified RSS feeds; enable/disable per row).
 - Storage is plain Postgres. Interfaces hide the choice, so TimescaleDB is an
   extension rather than a rewrite if volume ever justifies it.
 

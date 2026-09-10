@@ -20,15 +20,6 @@ def test_postgres_dsn():
     assert s.postgres_dsn == "postgresql+asyncpg://u:p@h:5432/d"
 
 
-def test_news_sources_list():
-    s = Settings(news_sources="https://a.com, https://b.com")
-    assert s.news_sources_list == ["https://a.com", "https://b.com"]
-
-
-def test_news_sources_list_empty():
-    assert Settings(news_sources="").news_sources_list == []
-
-
 def test_defaults():
     s = Settings(_env_file=None)
     assert s.cron_enabled is False

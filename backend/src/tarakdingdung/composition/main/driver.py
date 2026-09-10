@@ -39,7 +39,7 @@ def build_container(settings: Settings) -> Container:
     cost_model = infrastructure.build_cost_model(settings)
     fill_sim = infrastructure.build_fill_sim(settings)
     market_source = infrastructure.build_market_source(settings)
-    news_sources = infrastructure.build_news_sources(settings)
+    news_source_factory = infrastructure.build_news_sources(settings)
     executor = infrastructure.build_executor(settings, exchange, clock)
     reconciler = StandardReconciler(exchange)
     single_flight = infrastructure.build_single_flight(settings)
@@ -73,7 +73,8 @@ def build_container(settings: Settings) -> Container:
         repos["market_data"],
         repos["news"],
         market_source,
-        news_sources,
+        repos["news_feeds"],
+        news_source_factory,
         clock,
     )
     engine = TradingEngineUsecase(

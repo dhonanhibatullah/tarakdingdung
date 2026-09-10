@@ -35,6 +35,9 @@ from tarakdingdung.infrastructure.repository.market_data.repository import (
     SqlAlchemyMarketDataRepository,
 )
 from tarakdingdung.infrastructure.repository.news.repository import SqlAlchemyNewsRepository
+from tarakdingdung.infrastructure.repository.news_feed.repository import (
+    SqlAlchemyNewsFeedRepository,
+)
 from tarakdingdung.infrastructure.repository.order_journal.repository import (
     SqlAlchemyOrderJournalRepository,
 )
@@ -110,6 +113,7 @@ def build_repositories(settings: Settings):
         "universes": SqlAlchemyUniverseRepository(sessions),
         "market_data": SqlAlchemyMarketDataRepository(sessions),
         "news": SqlAlchemyNewsRepository(sessions),
+        "news_feeds": SqlAlchemyNewsFeedRepository(sessions),
         "decisions": SqlAlchemyDecisionRepository(sessions),
         "backtests": SqlAlchemyBacktestRepository(sessions),
         "portfolio": SqlAlchemyPortfolioRepository(sessions),
@@ -132,7 +136,11 @@ def build_market_source(settings: Settings):
 
 def build_news_sources(settings: Settings):
     client = httpx.AsyncClient()
-    return [HttpNewsSource(client, [url]) for url in settings.news_sources_list]
+
+    def factory(url: str) -> HttpNewsSource:
+        return HttpNewsSource(client, [url])
+
+    return factory
 
 
 def build_exchange(settings: Settings):

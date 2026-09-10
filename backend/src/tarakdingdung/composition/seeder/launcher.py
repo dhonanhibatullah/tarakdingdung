@@ -5,6 +5,7 @@ from pathlib import Path
 
 from tarakdingdung.composition.main import infrastructure
 from tarakdingdung.config.settings import Settings
+from tarakdingdung.domain.models.news import NewsFeed
 from tarakdingdung.domain.models.permission import Permission
 from tarakdingdung.domain.models.portfolio import Balance, PortfolioSnapshot
 from tarakdingdung.domain.models.role import Role
@@ -94,6 +95,17 @@ async def _apply(repos: dict, password, settings: Settings) -> None:
             await user_roles.create(UserRole(user_id=user.id, role_id=role.id))
 
     await _seed_universe(repos, settings)
+    await _seed_news_feeds(repos)
+
+
+async def _seed_news_feeds(repos: dict) -> None:
+    news_feeds = repos["news_feeds"]
+    for spec in _load("news_sources.json"):
+        existing = await news_feeds.read_by_url(spec["url"])
+        if existing is None:
+            await news_feeds.create(
+                NewsFeed(id="", name=spec["name"], url=spec["url"])
+            )
 
 
 async def _seed_universe(repos: dict, settings: Settings) -> None:

@@ -14,6 +14,9 @@ from tarakdingdung.infrastructure.repository.market_data.repository import (
     SqlAlchemyMarketDataRepository,
 )
 from tarakdingdung.infrastructure.repository.news.repository import SqlAlchemyNewsRepository
+from tarakdingdung.infrastructure.repository.news_feed.repository import (
+    SqlAlchemyNewsFeedRepository,
+)
 from tarakdingdung.infrastructure.repository.order_journal.repository import (
     SqlAlchemyOrderJournalRepository,
 )
@@ -51,6 +54,7 @@ def _repos(session_factory):
         "universes": SqlAlchemyUniverseRepository(session_factory),
         "market_data": SqlAlchemyMarketDataRepository(session_factory),
         "news": SqlAlchemyNewsRepository(session_factory),
+        "news_feeds": SqlAlchemyNewsFeedRepository(session_factory),
         "decisions": SqlAlchemyDecisionRepository(session_factory),
         "backtests": SqlAlchemyBacktestRepository(session_factory),
         "portfolio": SqlAlchemyPortfolioRepository(session_factory),
@@ -122,3 +126,15 @@ async def test_seeder_seeds_universe_and_portfolio(session_factory):
     snapshot = await repos["portfolio"].read_latest("indodax")
     assert snapshot is not None
     assert snapshot.equity == Decimal("10000000")
+
+
+async def test_seeder_seeds_news_feeds(session_factory):
+    repos = _repos(session_factory)
+    password = BcryptPassword(cost=4)
+    await _apply(repos, password, _settings())
+
+    feeds = await repos["news_feeds"].read_enabled()
+    urls = {f.url for f in feeds}
+    assert "https://www.coindesk.com/arc/outboundfeeds/rss/" in urls
+    assert "https://cointelegraph.com/rss" in urls
+    assert len(feeds) >= 5

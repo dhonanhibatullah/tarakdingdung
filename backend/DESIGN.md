@@ -115,4 +115,5 @@ via config (the `llm/` contract hides the provider).
 # Open questions
 * Exact cadence default (daily vs weekly) — configurable until settled
 * Token/latency budget per decision — sized once the provider is fixed
-* News source allowlist for the scraper
+* News source allowlist — resolved: seeded in `news_feeds` from
+  `database/seeder/news_sources.json`

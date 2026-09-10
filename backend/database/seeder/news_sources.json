@@ -1,0 +1,10 @@
+[
+  {"name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
+  {"name": "The Block", "url": "https://www.theblock.co/rss.xml"},
+  {"name": "Blockworks", "url": "https://blockworks.co/feed"},
+  {"name": "Cointelegraph", "url": "https://cointelegraph.com/rss"},
+  {"name": "Decrypt", "url": "https://decrypt.co/feed"},
+  {"name": "The Defiant", "url": "https://thedefiant.io/feed"},
+  {"name": "Bitcoinist", "url": "https://bitcoinist.com/feed/"},
+  {"name": "Daily Hodl", "url": "https://dailyhodl.com/feed/"}
+]

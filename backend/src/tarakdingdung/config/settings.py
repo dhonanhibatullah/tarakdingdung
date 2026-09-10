@@ -49,8 +49,6 @@ class Settings(BaseSettings):
     indodax_api_key: str = ""
     indodax_secret_key: str = ""
 
-    news_sources: str = ""
-
     seed_super_password: str = "changeme12345"
     seed_admin_password: str = "changeme12345"
     seed_user_password: str = "changeme12345"
@@ -61,7 +59,3 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.postgres_username}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_database}"
         )
-
-    @property
-    def news_sources_list(self) -> list[str]:
-        return [s.strip() for s in self.news_sources.split(",") if s.strip()]

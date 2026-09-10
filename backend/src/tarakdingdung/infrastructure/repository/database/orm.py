@@ -277,3 +277,15 @@ class FillRow(Base):
     quantity: Mapped[Decimal] = mapped_column(MONEY, nullable=False)
     fee: Mapped[Decimal] = mapped_column(MONEY, nullable=False)
     filled_at_ms: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class NewsFeedRow(Base):
+    __tablename__ = "news_feeds"
+    __table_args__ = (UniqueConstraint("url", name="uq_news_feeds_url"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("true")
+    )

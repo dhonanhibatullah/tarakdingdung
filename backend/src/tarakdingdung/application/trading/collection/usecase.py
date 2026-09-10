@@ -1,5 +1,8 @@
+from collections.abc import Callable
+
 from tarakdingdung.domain.contracts.repository.market_data import MarketDataRepository
 from tarakdingdung.domain.contracts.repository.news import NewsRepository
+from tarakdingdung.domain.contracts.repository.news_feed import NewsFeedRepository
 from tarakdingdung.domain.contracts.repository.universe import UniverseRepository
 from tarakdingdung.domain.contracts.scrapper.market_source import MarketSource
 from tarakdingdung.domain.contracts.scrapper.news_source import NewsSource
@@ -16,7 +19,8 @@ class CollectionUsecase(Collection):
         market_data: MarketDataRepository,
         news: NewsRepository,
         market_source: MarketSource,
-        news_sources: list[NewsSource],
+        news_feeds: NewsFeedRepository,
+        news_source_factory: Callable[[str], NewsSource],
         clock: Clock,
         interval: str = "60",
         lookback_ms: int = 86_400_000,
@@ -26,7 +30,8 @@ class CollectionUsecase(Collection):
         self._market_data = market_data
         self._news = news
         self._market_source = market_source
-        self._news_sources = news_sources
+        self._news_feeds = news_feeds
+        self._news_source_factory = news_source_factory
         self._clock = clock
         self._interval = interval
         self._lookback_ms = lookback_ms
@@ -46,11 +51,12 @@ class CollectionUsecase(Collection):
             except Exception:
                 failed.append(f"market:{symbol.external}")
 
-        for source in self._news_sources:
+        for feed in await self._news_feeds.read_enabled():
+            source = self._news_source_factory(feed.url)
             try:
                 for article in await source.fetch():
                     await self._news.create(article)
             except Exception:
-                failed.append("news")
+                failed.append(f"news:{feed.name}")
 
         return CollectResult(failed=failed)

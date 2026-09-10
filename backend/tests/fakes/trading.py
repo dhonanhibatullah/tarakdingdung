@@ -4,6 +4,7 @@ from tarakdingdung.domain.contracts.repository.backtest import BacktestRepositor
 from tarakdingdung.domain.contracts.repository.decision import DecisionRepository
 from tarakdingdung.domain.contracts.repository.market_data import MarketDataRepository
 from tarakdingdung.domain.contracts.repository.news import NewsRepository
+from tarakdingdung.domain.contracts.repository.news_feed import NewsFeedRepository
 from tarakdingdung.domain.contracts.repository.order_journal import OrderJournalRepository
 from tarakdingdung.domain.contracts.repository.portfolio import PortfolioRepository
 from tarakdingdung.domain.contracts.repository.symbol import SymbolRepository
@@ -11,7 +12,7 @@ from tarakdingdung.domain.contracts.repository.universe import UniverseRepositor
 from tarakdingdung.domain.models.backtest import BacktestResult
 from tarakdingdung.domain.models.decision import Decision
 from tarakdingdung.domain.models.market import Candle
-from tarakdingdung.domain.models.news import NewsAnalysis, NewsArticle
+from tarakdingdung.domain.models.news import NewsAnalysis, NewsArticle, NewsFeed
 from tarakdingdung.domain.models.order import Fill, Order, OrderStatus
 from tarakdingdung.domain.models.portfolio import Balance, PortfolioSnapshot
 from tarakdingdung.domain.models.symbol import (
@@ -126,6 +127,34 @@ class InMemoryNewsRepository(NewsRepository):
 
     async def read_analyses(self, from_ms: int) -> list[NewsAnalysis]:
         return self.analyses
+
+
+class InMemoryNewsFeedRepository(NewsFeedRepository):
+    def __init__(self, feeds=None) -> None:
+        self.feeds = feeds or []
+
+    async def create(self, entity: NewsFeed) -> NewsFeed:
+        stored = NewsFeed(
+            id=entity.id or str(uuid.uuid4()),
+            name=entity.name,
+            url=entity.url,
+            enabled=entity.enabled,
+        )
+        self.feeds.append(stored)
+        return stored
+
+    async def read_by_url(self, url: str) -> NewsFeed | None:
+        for f in self.feeds:
+            if f.url == url:
+                return f
+        return None
+
+    async def read_enabled(self) -> list[NewsFeed]:
+        return [f for f in self.feeds if f.enabled]
+
+    async def read_by_pagination(self, page: int, per_page: int):
+        items = self.feeds
+        return items[(page - 1) * per_page : page * per_page], len(items)
 
 
 class InMemoryDecisionRepository(DecisionRepository):
