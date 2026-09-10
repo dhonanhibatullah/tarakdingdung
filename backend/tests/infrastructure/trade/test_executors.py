@@ -77,6 +77,13 @@ async def test_paper_executor_updates_balances():
     assert assets["BTC"] == Decimal("1")
 
 
+def test_paper_exchange_load_replaces_balances():
+    paper = PaperExchange({"IDR": Decimal("1000")})
+    paper.load({"IDR": Decimal("500"), "BTC": Decimal("2")})
+    assert paper._balances == {"IDR": Decimal("500"), "BTC": Decimal("2")}
+    assert paper._locked == {"IDR": Decimal("0"), "BTC": Decimal("0")}
+
+
 async def test_live_executor_succeeds():
     exchange = FakeExchange()
     executor = LiveExecutor(exchange)

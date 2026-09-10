@@ -1,4 +1,8 @@
+from asyncio import CancelledError
+from contextlib import asynccontextmanager
 from decimal import Decimal
+
+import asyncio
 
 from fastapi import FastAPI
 
@@ -20,8 +24,10 @@ from tarakdingdung.composition.main.application import Container
 from tarakdingdung.composition.main import infrastructure
 from tarakdingdung.config.settings import Settings
 from tarakdingdung.infrastructure.trade.execution.reconciler import StandardReconciler
+from tarakdingdung.infrastructure.trade.execution.paper.exchange import PaperExchange
 from tarakdingdung.presentation.http.routers import admin, auth, profile, trading, version
 from tarakdingdung.presentation.http.utils.errors import register_error_handlers
+from tarakdingdung.presentation.cron.schedule import run_scheduler
 
 
 def build_container(settings: Settings) -> Container:
@@ -121,6 +127,7 @@ def build_container(settings: Settings) -> Container:
         engine=engine,
         backtests=repos["backtests"],
         decisions=repos["decisions"],
+        exchange=exchange,
     )
 
 
@@ -131,7 +138,33 @@ def build_app(
     if container is None:
         container = build_container(settings)
 
-    app = FastAPI(title=settings.app_name, version=settings.app_version)
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        if isinstance(container.exchange, PaperExchange):
+            view = await container.portfolio.read(settings.engine_venue)
+            if view is not None:
+                container.exchange.load(
+                    {b.asset: b.free + b.locked for b in view.balances}
+                )
+
+        stop_event = asyncio.Event()
+        task: asyncio.Task | None = None
+        if settings.cron_enabled:
+            task = asyncio.create_task(run_scheduler(container, settings, stop_event))
+        try:
+            yield
+        finally:
+            if task is not None:
+                stop_event.set()
+                task.cancel()
+                try:
+                    await task
+                except CancelledError:
+                    pass
+
+    app = FastAPI(
+        title=settings.app_name, version=settings.app_version, lifespan=lifespan
+    )
     app.state.settings = settings
     app.state.container = container
 

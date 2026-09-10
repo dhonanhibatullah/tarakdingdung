@@ -11,6 +11,7 @@ from tarakdingdung.application.profile.security.usecase import SecurityUsecase
 from tarakdingdung.domain.contracts.logger.leveled import LeveledLogger
 from tarakdingdung.domain.contracts.repository.backtest import BacktestRepository
 from tarakdingdung.domain.contracts.repository.decision import DecisionRepository
+from tarakdingdung.domain.contracts.trade.exchange import Exchange
 from tarakdingdung.domain.contracts.utility.token import Token
 from tarakdingdung.domain.usecases.trading.backtest import Backtest
 from tarakdingdung.domain.usecases.trading.collection import Collection
@@ -40,3 +41,4 @@ class Container:
     engine: TradingEngine | None = None
     backtests: BacktestRepository | None = None
     decisions: DecisionRepository | None = None
+    exchange: Exchange | None = None

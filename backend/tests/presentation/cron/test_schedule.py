@@ -1,3 +1,5 @@
+import asyncio
+
 from tarakdingdung.presentation.cron.schedule import run_once, run_scheduler
 
 
@@ -40,5 +42,19 @@ async def test_scheduler_disabled_returns_immediately(monkeypatch):
 
     monkeypatch.setattr("tarakdingdung.presentation.cron.schedule.run_once", fake_once)
 
-    await run_scheduler(FakeContainer(), FakeSettings(cron_enabled=False))
+    await run_scheduler(FakeContainer(), FakeSettings(cron_enabled=False), asyncio.Event())
+    assert calls == []
+
+
+async def test_scheduler_stops_on_event(monkeypatch):
+    calls = []
+
+    async def fake_once(container):
+        calls.append("once")
+
+    monkeypatch.setattr("tarakdingdung.presentation.cron.schedule.run_once", fake_once)
+
+    stop = asyncio.Event()
+    stop.set()
+    await run_scheduler(FakeContainer(), FakeSettings(cron_enabled=True, interval=0), stop)
     assert calls == []

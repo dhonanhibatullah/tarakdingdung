@@ -9,10 +9,13 @@ async def run_once(container) -> None:
     await engine.run(container)
 
 
-async def run_scheduler(container, settings) -> None:
+async def run_scheduler(container, settings, stop_event: asyncio.Event) -> None:
     if not settings.cron_enabled:
         return
     interval = settings.engine_interval_seconds
-    while True:
+    while not stop_event.is_set():
         await run_once(container)
-        await asyncio.sleep(interval)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except asyncio.TimeoutError:
+            pass

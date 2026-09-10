@@ -17,6 +17,10 @@ class PaperExchange(Exchange):
         self._locked = {k: Decimal("0") for k in self._balances}
         self._orders: dict[str, OrderResult] = {}
 
+    def load(self, balances: dict[str, Decimal]) -> None:
+        self._balances = {k: v for k, v in balances.items()}
+        self._locked = {k: Decimal("0") for k in self._balances}
+
     async def account(self) -> Account:
         return Account(
             balances=[
