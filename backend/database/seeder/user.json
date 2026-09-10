@@ -1,5 +1,0 @@
-[
-  { "role_name": "super", "name": "Default Super", "username": "super", "password": "changeme12345" },
-  { "role_name": "admin", "name": "Default Admin", "username": "admin", "password": "changeme12345" },
-  { "role_name": "user", "name": "Default User", "username": "user", "password": "changeme12345" }
-]

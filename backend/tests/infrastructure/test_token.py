@@ -6,7 +6,7 @@ from tarakdingdung.infrastructure.utility.token.jwt import JwtToken
 
 
 def make_token():
-    return JwtToken("access-secret", "refresh-secret", 900, 86400)
+    return JwtToken("a" * 32, "r" * 32, 900, 86400)
 
 
 def test_access_roundtrip():
@@ -40,7 +40,7 @@ def test_decode_rejects_tampered_token():
 
 def test_decode_rejects_wrong_secret():
     t = make_token()
-    other = JwtToken("other-secret", "refresh-secret", 900, 86400)
+    other = JwtToken("x" * 32, "r" * 32, 900, 86400)
     token = t.encode_access(TokenClaims(sub="1", username="alice"))
     with pytest.raises(DomainError):
         other.decode(token)
