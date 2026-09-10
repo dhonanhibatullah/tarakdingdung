@@ -150,10 +150,10 @@ class TradingEngineUsecase(TradingEngine):
         return prices
 
     def _current_values(self, approved, balances, prices) -> dict[str, Decimal]:
-        by_asset = {b.asset: b for b in balances}
+        by_asset = {b.asset.lower(): b for b in balances}
         values: dict[str, Decimal] = {}
         for symbol in approved:
-            balance = by_asset.get(symbol.base)
+            balance = by_asset.get(symbol.base.lower())
             if balance is None or symbol.id not in prices:
                 continue
             quantity = balance.free + balance.locked

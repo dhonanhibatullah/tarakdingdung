@@ -11,7 +11,7 @@ from tarakdingdung.application.profile.security.usecase import SecurityUsecase
 from tarakdingdung.composition.main.application import Container
 from tarakdingdung.composition.main import infrastructure
 from tarakdingdung.config.settings import Settings
-from tarakdingdung.presentation.http.routers import admin, auth, profile, version
+from tarakdingdung.presentation.http.routers import admin, auth, profile, trading, version
 from tarakdingdung.presentation.http.utils.errors import register_error_handlers
 
 
@@ -55,4 +55,5 @@ def build_app(
     app.include_router(auth.router)
     app.include_router(profile.router)
     app.include_router(admin.router)
+    app.include_router(trading.router)
     return app

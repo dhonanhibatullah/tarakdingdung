@@ -35,3 +35,21 @@ class AddUserBody(BaseModel):
     email: str
     password: str
     role_names: list[str] = []
+
+
+class ProposeSymbolBody(BaseModel):
+    venue: str
+    base: str
+    quote: str
+    external: str
+    rationale: str = ""
+
+
+class ApproveSymbolBody(BaseModel):
+    rationale: str = ""
+
+
+class BacktestBody(BaseModel):
+    from_ms: int
+    to_ms: int
+
